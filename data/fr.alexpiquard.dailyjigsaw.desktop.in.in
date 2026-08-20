@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=@name@
+Comment=Play a different jigsaw puzzle each day
+Type=Application
+Exec=@pkgname@
+Terminal=false
+Categories=GNOME;GTK;
+Keywords=Gnome;GTK;
+Icon=@icon@
+StartupNotify=true
+DBusActivatable=true

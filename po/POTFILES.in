@@ -1,0 +1,6 @@
+data/fr.alexpiquard.dailyjigsaw.desktop.in.in
+data/fr.alexpiquard.dailyjigsaw.gschema.xml.in
+data/fr.alexpiquard.dailyjigsaw.metainfo.xml.in.in
+data/resources/ui/shortcuts.ui
+src/app.rs
+src/main.rs
