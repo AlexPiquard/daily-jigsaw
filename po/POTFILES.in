@@ -1,6 +1,14 @@
 data/fr.alexpiquard.dailyjigsaw.desktop.in.in
 data/fr.alexpiquard.dailyjigsaw.gschema.xml.in
 data/fr.alexpiquard.dailyjigsaw.metainfo.xml.in.in
-data/resources/ui/shortcuts.ui
+data/resources/fr.alexpiquard.dailyjigsaw.gresource.xml.in
 src/app.rs
+src/config.rs
+src/core/jigsaw.rs
+src/core/mod.rs
 src/main.rs
+src/modals/about.rs
+src/modals/mod.rs
+src/modals/shortcuts.rs
+src/widgets/board.rs
+src/widgets/mod.rs

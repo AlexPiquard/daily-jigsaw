@@ -5,9 +5,9 @@
   <metadata_license>CC0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <name>@name@</name>
-  <summary>Play differente jigsaw puzzle each day</summary>
+  <summary>Play a different jigsaw puzzle each day</summary>
   <description>
-    <p>Play a different jigsaw puzzle each day.</p>
+    <p>Play a different jigsaw puzzle each day</p>
   </description>
   <screenshots>
     <screenshot type="default">

@@ -4,6 +4,7 @@ use relm4::{
     adw, gtk, main_application,
 };
 
+use gettextrs::gettext;
 use gtk::prelude::{ApplicationExt, BoxExt, GtkWindowExt, OrientableExt, SettingsExt, WidgetExt};
 use gtk::{gio, glib};
 
@@ -34,9 +35,9 @@ impl SimpleComponent for App {
     menu! {
         primary_menu: {
             section! {
-                "_Preferences" => PreferencesAction,
-                "_Keyboard" => ShortcutsAction,
-                "_About Daily Jigsaw" => AboutAction,
+                &gettext("_Preferences") => PreferencesAction,
+                &gettext("_Shortcuts") => ShortcutsAction,
+                &gettext("_About Daily Jigsaw") => AboutAction,
             }
         }
     }

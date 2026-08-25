@@ -1,0 +1,61 @@
+# French translations for daily-jigsaw package.
+# Copyright (C) 2026 THE daily-jigsaw'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the daily-jigsaw package.
+# alex <alex.piquard@hotmail.com>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: daily-jigsaw\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 19:28+0200\n"
+"PO-Revision-Date: 2026-08-25 19:07+0200\n"
+"Last-Translator: alex <alex.piquard@hotmail.com>\n"
+"Language-Team: French <traduc@traduc.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: data/fr.alexpiquard.dailyjigsaw.desktop.in.in:2
+#: data/fr.alexpiquard.dailyjigsaw.metainfo.xml.in.in:7
+msgid "@name@"
+msgstr "@name@"
+
+#: data/fr.alexpiquard.dailyjigsaw.desktop.in.in:3
+#: data/fr.alexpiquard.dailyjigsaw.metainfo.xml.in.in:8
+#: data/fr.alexpiquard.dailyjigsaw.metainfo.xml.in.in:10
+msgid "Play a different jigsaw puzzle each day"
+msgstr "Joue à un puzzle différent chaque jour"
+
+#: data/fr.alexpiquard.dailyjigsaw.desktop.in.in:8
+msgid "Gnome;GTK;"
+msgstr "Gnome;GTK;"
+
+#: data/fr.alexpiquard.dailyjigsaw.gschema.xml.in:6
+msgid "Window width"
+msgstr "Largeur de fenêtre"
+
+#: data/fr.alexpiquard.dailyjigsaw.gschema.xml.in:10
+msgid "Window height"
+msgstr "Hauteur de fenêtre"
+
+#: data/fr.alexpiquard.dailyjigsaw.gschema.xml.in:14
+msgid "Window maximized state"
+msgstr "Fenêtre en plein écran"
+
+#: data/fr.alexpiquard.dailyjigsaw.metainfo.xml.in.in:15
+msgid "Main game window"
+msgstr "Fenêtre principal de jeu"
+
+#: src/app.rs:38
+msgid "_Preferences"
+msgstr "_Préférences"
+
+#: src/app.rs:39
+msgid "_Shortcuts"
+msgstr "_Raccourcis clavier"
+
+#: src/app.rs:40
+msgid "_About Daily Jigsaw"
+msgstr "À props de Daily Jigsaw"
