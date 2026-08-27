@@ -66,7 +66,6 @@ mod imp {
             self.parent_realize();
         }
 
-        // PERF: smoother movements
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
             if self.obj().width() <= 0 || self.obj().height() <= 0 {
                 return;
@@ -113,7 +112,7 @@ mod imp {
             snapshot.append_node(&border);
 
             for piece in jigsaw.pieces() {
-                let path = piece.build_path();
+                let path = piece.path();
                 let src = piece.source_rect();
 
                 // Build source node: texture with transform
@@ -139,7 +138,7 @@ mod imp {
                 let bounds = gtk::graphene::Rect::new(0.0, 0.0, piece.total_size, piece.total_size);
                 let color_node = gtk::gsk::ColorNode::new(&white, &bounds);
                 let fill_node =
-                    gtk::gsk::FillNode::new(&color_node, &path, gtk::gsk::FillRule::Winding);
+                    gtk::gsk::FillNode::new(&color_node, path, gtk::gsk::FillRule::Winding);
 
                 // Combine: source masked by piece shape
                 let mask_node =
@@ -233,7 +232,7 @@ mod imp {
                 // Hit test: find topmost piece under the cursor (reverse order = top first)
                 let mut hit_index = None;
                 for (i, piece) in pieces.iter().enumerate().rev() {
-                    let path = piece.build_path();
+                    let path = piece.path();
                     let point = gtk::graphene::Point::new(
                         start_x as f32 - piece.x,
                         start_y as f32 - piece.y,

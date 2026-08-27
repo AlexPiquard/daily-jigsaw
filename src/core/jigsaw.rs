@@ -1,3 +1,5 @@
+use std::cell::OnceCell;
+
 use rand::Rng;
 
 pub const ARC_RATIO: f32 = 1.0 / 6.0;
@@ -158,6 +160,8 @@ pub struct Piece {
     pub right_hole: Option<bool>,
     pub bottom_hole: Option<bool>,
     pub left_hole: Option<bool>,
+
+    path: OnceCell<relm4::gtk::gsk::Path>,
 }
 
 impl Piece {
@@ -192,6 +196,7 @@ impl Piece {
             right_hole,
             bottom_hole,
             left_hole,
+            path: OnceCell::new(),
         }
     }
 
@@ -208,7 +213,11 @@ impl Piece {
         }
     }
 
-    pub fn build_path(&self) -> relm4::gtk::gsk::Path {
+    pub fn path(&self) -> &relm4::gtk::gsk::Path {
+        self.path.get_or_init(|| self.build_gsk_path())
+    }
+
+    fn build_gsk_path(&self) -> relm4::gtk::gsk::Path {
         let builder = relm4::gtk::gsk::PathBuilder::new();
         builder.move_to(self.arc_radius, self.arc_radius);
 
