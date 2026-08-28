@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: daily-jigsaw\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 19:28+0200\n"
+"POT-Creation-Date: 2026-08-28 17:45+0200\n"
 "PO-Revision-Date: 2026-08-25 19:07+0200\n"
 "Last-Translator: alex <alex.piquard@hotmail.com>\n"
 "Language-Team: French <traduc@traduc.org>\n"
@@ -44,18 +44,46 @@ msgstr "Hauteur de fenêtre"
 msgid "Window maximized state"
 msgstr "Fenêtre en plein écran"
 
+#: data/fr.alexpiquard.dailyjigsaw.gschema.xml.in:18
+msgid "Number of pieces per axis"
+msgstr "Nombre de pièces par axe."
+
+#: data/fr.alexpiquard.dailyjigsaw.gschema.xml.in:22
+msgid "Show placement helpers"
+msgstr "Afficher des aides au placement"
+
 #: data/fr.alexpiquard.dailyjigsaw.metainfo.xml.in.in:15
 msgid "Main game window"
 msgstr "Fenêtre principal de jeu"
 
-#: src/app.rs:38
+#: src/app.rs:44
 msgid "_Preferences"
 msgstr "_Préférences"
 
-#: src/app.rs:39
+#: src/app.rs:45
 msgid "_Shortcuts"
 msgstr "_Raccourcis clavier"
 
-#: src/app.rs:40
+#: src/app.rs:46
 msgid "_About Daily Jigsaw"
 msgstr "À props de Daily Jigsaw"
+
+#: src/app.rs:104
+msgid "Puzzle solved!"
+msgstr "Puzzle terminé !"
+
+#: src/modals/preferences.rs:36
+msgid "Grid size"
+msgstr "Taille de la grille"
+
+#: src/modals/preferences.rs:45
+msgid "Helpers"
+msgstr "Aides"
+
+#: src/modals/preferences.rs:54
+msgid "Game"
+msgstr "Jeu"
+
+#: src/modals/preferences.rs:59
+msgid "General"
+msgstr "Général"

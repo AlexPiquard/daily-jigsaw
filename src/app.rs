@@ -1,5 +1,5 @@
 use relm4::{
-    Component, ComponentParts, ComponentSender, SimpleComponent,
+    Component, ComponentParts, ComponentSender, Controller, SimpleComponent,
     actions::{AccelsPlus, RelmAction, RelmActionGroup},
     adw, gtk, main_application,
 };
@@ -7,17 +7,22 @@ use relm4::{
 use gettextrs::gettext;
 use gtk::prelude::{ApplicationExt, BoxExt, GtkWindowExt, OrientableExt, SettingsExt, WidgetExt};
 use gtk::{gio, glib};
-use std::rc::Rc;
 
-use crate::config::{APP_ID, PROFILE};
 use crate::modals::{about::AboutDialog, shortcuts::ShortcutsDialog};
 use crate::widgets::board::BoardView;
+use crate::{
+    config::{APP_ID, PROFILE},
+    modals::preferences,
+};
 
-pub(super) struct App {}
+pub(super) struct App {
+    preferences: Option<Controller<preferences::PreferencesDialog>>,
+}
 
 #[derive(Debug)]
 pub(super) enum AppMsg {
     Quit,
+    OpenPreferences,
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
@@ -86,14 +91,16 @@ impl SimpleComponent for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let widgets = view_output!();
-        let model = Self {};
+        let model = Self { preferences: None };
 
         let board = BoardView::new();
         board.set_hexpand(true);
         board.set_vexpand(true);
 
+        let grid_size = gio::Settings::new(*APP_ID).int("grid-size").clamp(3, 10) as usize;
+
         let overlay = widgets.toast_overlay.clone();
-        board.setup(4, move || {
+        board.setup(grid_size, move || {
             overlay.add_toast(adw::Toast::new(&gettext("Puzzle solved!")));
         });
 
@@ -101,6 +108,13 @@ impl SimpleComponent for App {
 
         let app = root.application().unwrap();
         let mut actions = RelmActionGroup::<WindowActionGroup>::new();
+
+        let preferences_action = {
+            let sender = sender.clone();
+            RelmAction::<PreferencesAction>::new_stateless(move |_| {
+                sender.input(AppMsg::OpenPreferences);
+            })
+        };
 
         let shortcuts_action = {
             RelmAction::<ShortcutsAction>::new_stateless(move |_| {
@@ -123,6 +137,7 @@ impl SimpleComponent for App {
         // Connect action with hotkeys
         app.set_accelerators_for_action::<QuitAction>(&["<Control>q"]);
 
+        actions.add_action(preferences_action);
         actions.add_action(shortcuts_action);
         actions.add_action(about_action);
         actions.add_action(quit_action);
@@ -136,6 +151,13 @@ impl SimpleComponent for App {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             AppMsg::Quit => main_application().quit(),
+            AppMsg::OpenPreferences => {
+                self.preferences = Some(
+                    preferences::PreferencesDialog::builder()
+                        .launch(())
+                        .detach(),
+                );
+            }
         }
     }
 

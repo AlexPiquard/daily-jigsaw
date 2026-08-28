@@ -9,6 +9,7 @@ src/core/mod.rs
 src/main.rs
 src/modals/about.rs
 src/modals/mod.rs
+src/modals/preferences.rs
 src/modals/shortcuts.rs
 src/widgets/board.rs
 src/widgets/mod.rs
