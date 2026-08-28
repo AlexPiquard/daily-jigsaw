@@ -41,6 +41,7 @@ mod imp {
         source: RefCell<Option<Rc<gtk::gdk_pixbuf::Pixbuf>>>,
         drag_state: RefCell<Option<DragState>>,
         texture: RefCell<Option<gtk::gdk::Texture>>,
+        on_win: OnceCell<Box<dyn Fn()>>,
     }
 
     #[glib::object_subclass]
@@ -154,8 +155,11 @@ mod imp {
     }
 
     impl BoardView {
-        pub fn prepare(&self, pieces_per_axis: usize) {
+        pub fn prepare(&self, pieces_per_axis: usize, on_win: impl Fn() + 'static) {
             if self.pieces_per_axis.set(pieces_per_axis).is_err() {
+                return;
+            }
+            if self.on_win.set(Box::new(on_win)).is_err() {
                 return;
             }
             self.download_daily_image();
@@ -271,7 +275,7 @@ mod imp {
                 let x = state.start_x + offset_x as f32;
                 let y = state.start_y + offset_y as f32;
 
-                jigsaw.move_last_to(x, y);
+                this.imp().move_piece_to(jigsaw, x, y);
                 this.queue_draw();
             });
 
@@ -296,13 +300,21 @@ mod imp {
                     }
                 }
                 if let Some((x, y)) = snap_to {
-                    jigsaw.move_last_to(x, y);
+                    this.imp().move_piece_to(jigsaw, x, y);
                     this.queue_draw();
                 }
                 *this.imp().drag_state.borrow_mut() = None;
             });
 
             self.obj().add_controller(gesture);
+        }
+
+        fn move_piece_to(&self, jigsaw: &mut Jigsaw, x: f32, y: f32) {
+            if jigsaw.move_last_to(x, y)
+                && let Some(callback) = self.on_win.get()
+            {
+                callback();
+            }
         }
 
         pub fn set_source(&self, path: PathBuf) {
@@ -361,7 +373,7 @@ impl BoardView {
         glib::Object::new()
     }
 
-    pub fn setup(&self, pieces_per_axis: usize) {
-        self.imp().prepare(pieces_per_axis);
+    pub fn setup(&self, pieces_per_axis: usize, on_win: impl Fn() + 'static) {
+        self.imp().prepare(pieces_per_axis, on_win);
     }
 }

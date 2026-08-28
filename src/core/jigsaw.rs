@@ -11,6 +11,7 @@ const ARC_SEGMENTS: i32 = 20;
 
 #[derive(Debug)]
 pub struct Jigsaw {
+    solved: bool,
     pieces: Vec<Piece>,
     pub snap_distance: f32,
     pub width: i32,
@@ -38,6 +39,7 @@ impl Jigsaw {
             origin_x,
             origin_y,
             snap_distance: 0.0,
+            solved: false,
         };
         this.create_pieces(pieces_per_axis, width, height, scale, origin_x, origin_y);
         this
@@ -124,11 +126,23 @@ impl Jigsaw {
         self.pieces.push(piece);
     }
 
-    pub fn move_last_to(&mut self, x: f32, y: f32) {
+    pub fn move_last_to(&mut self, x: f32, y: f32) -> bool {
         if let Some(piece) = self.pieces.last_mut() {
             piece.x = x;
             piece.y = y;
+
+            return x == piece.start_x && y == piece.start_y && self.check_solved();
         }
+
+        false
+    }
+
+    pub fn check_solved(&mut self) -> bool {
+        if self.solved {
+            return false;
+        }
+        self.solved = self.pieces.iter().all(|p| p.is_in_place());
+        self.solved
     }
 
     pub fn scatter(&mut self, area_w: f32, area_h: f32) {
@@ -198,6 +212,11 @@ impl Piece {
             left_hole,
             path: OnceCell::new(),
         }
+    }
+
+    /// Returns true if the piece is correctly placed
+    pub fn is_in_place(&self) -> bool {
+        self.x == self.start_x && self.y == self.start_y
     }
 
     /// The source crop of the full image, in image pixels.

@@ -7,6 +7,7 @@ use relm4::{
 use gettextrs::gettext;
 use gtk::prelude::{ApplicationExt, BoxExt, GtkWindowExt, OrientableExt, SettingsExt, WidgetExt};
 use gtk::{gio, glib};
+use std::rc::Rc;
 
 use crate::config::{APP_ID, PROFILE};
 use crate::modals::{about::AboutDialog, shortcuts::ShortcutsDialog};
@@ -67,9 +68,12 @@ impl SimpleComponent for App {
                     }
                 },
 
-                #[name = "content_box"]
-                gtk::Box {
-                    set_orientation: gtk::Orientation::Vertical,
+                #[name = "toast_overlay"]
+                adw::ToastOverlay {
+                    #[name = "content_box"]
+                    gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                    },
                 },
             }
 
@@ -87,7 +91,12 @@ impl SimpleComponent for App {
         let board = BoardView::new();
         board.set_hexpand(true);
         board.set_vexpand(true);
-        board.setup(4);
+
+        let overlay = widgets.toast_overlay.clone();
+        board.setup(4, move || {
+            overlay.add_toast(adw::Toast::new(&gettext("Puzzle solved!")));
+        });
+
         widgets.content_box.append(&board);
 
         let app = root.application().unwrap();
