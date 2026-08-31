@@ -9,6 +9,11 @@ pub struct PreferencesDialog {
 }
 
 #[derive(Debug)]
+pub enum PreferencesOutput {
+    Changed,
+}
+
+#[derive(Debug)]
 pub enum PreferencesMsg {
     GridSizeChanged(i32),
     HelpersChanged(bool),
@@ -19,7 +24,7 @@ impl SimpleComponent for PreferencesDialog {
     type Widgets = adw::PreferencesDialog;
     type Init = ();
     type Input = PreferencesMsg;
-    type Output = ();
+    type Output = PreferencesOutput;
 
     fn init_root() -> Self::Root {
         adw::PreferencesDialog::builder().build()
@@ -65,6 +70,16 @@ impl SimpleComponent for PreferencesDialog {
 
         root.add(&page);
         root.present(Some(&relm4::main_application().windows()[0]));
+
+        let initial_grid_size = settings.int("grid-size");
+
+        let settings_clone = settings.clone();
+        root.connect_closed(move |_| {
+            let current_grid = settings_clone.int("grid-size");
+            if current_grid != initial_grid_size {
+                sender.output(PreferencesOutput::Changed).unwrap();
+            }
+        });
 
         let widgets = root.clone();
         let model = PreferencesDialog { settings };

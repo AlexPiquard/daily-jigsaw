@@ -17,12 +17,14 @@ use crate::{
 
 pub(super) struct App {
     preferences: Option<Controller<preferences::PreferencesDialog>>,
+    board: BoardView,
 }
 
 #[derive(Debug)]
 pub(super) enum AppMsg {
     Quit,
     OpenPreferences,
+    ResetPuzzle,
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
@@ -91,20 +93,22 @@ impl SimpleComponent for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let widgets = view_output!();
-        let model = Self { preferences: None };
 
         let board = BoardView::new();
         board.set_hexpand(true);
         board.set_vexpand(true);
 
-        let grid_size = gio::Settings::new(*APP_ID).int("grid-size").clamp(3, 10) as usize;
+        let model = Self {
+            preferences: None,
+            board,
+        };
 
         let overlay = widgets.toast_overlay.clone();
-        board.setup(grid_size, move || {
+        model.board.setup(move || {
             overlay.add_toast(adw::Toast::new(&gettext("Puzzle solved!")));
         });
 
-        widgets.content_box.append(&board);
+        widgets.content_box.append(&model.board);
 
         let app = root.application().unwrap();
         let mut actions = RelmActionGroup::<WindowActionGroup>::new();
@@ -148,15 +152,20 @@ impl SimpleComponent for App {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             AppMsg::Quit => main_application().quit(),
             AppMsg::OpenPreferences => {
                 self.preferences = Some(
                     preferences::PreferencesDialog::builder()
                         .launch(())
-                        .detach(),
+                        .forward(sender.input_sender(), |output| match output {
+                            preferences::PreferencesOutput::Changed => AppMsg::ResetPuzzle,
+                        }),
                 );
+            }
+            AppMsg::ResetPuzzle => {
+                self.board.reset();
             }
         }
     }

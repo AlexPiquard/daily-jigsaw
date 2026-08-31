@@ -20,7 +20,7 @@ mod imp {
         },
     };
 
-    use crate::core::jigsaw::Jigsaw;
+    use crate::{config::APP_ID, core::jigsaw::Jigsaw};
 
     #[derive(serde::Deserialize)]
     struct ImageApiResp {
@@ -36,7 +36,6 @@ mod imp {
 
     #[derive(Default)]
     pub struct BoardView {
-        pieces_per_axis: OnceCell<usize>,
         jigsaw: RefCell<Option<Jigsaw>>,
         source: RefCell<Option<Rc<gtk::gdk_pixbuf::Pixbuf>>>,
         drag_state: RefCell<Option<DragState>>,
@@ -155,10 +154,7 @@ mod imp {
     }
 
     impl BoardView {
-        pub fn prepare(&self, pieces_per_axis: usize, on_win: impl Fn() + 'static) {
-            if self.pieces_per_axis.set(pieces_per_axis).is_err() {
-                return;
-            }
+        pub fn prepare(&self, on_win: impl Fn() + 'static) {
             if self.on_win.set(Box::new(on_win)).is_err() {
                 return;
             }
@@ -166,6 +162,10 @@ mod imp {
         }
 
         pub fn create_jigsaw(&self) {
+            let grid_size = gtk::gio::Settings::new(*APP_ID)
+                .int("grid-size")
+                .clamp(3, 10) as usize;
+
             let area_w = self.obj().width() as f32;
             let area_h = self.obj().height() as f32;
             let source = self.source.borrow();
@@ -187,7 +187,7 @@ mod imp {
             let origin_y = BOARD_MARGIN + (avail_h - disp_h) / 2.0;
 
             let mut jigsaw = Jigsaw::new(
-                *self.pieces_per_axis.get().unwrap_or(&3),
+                grid_size,
                 disp_w.round() as i32,
                 disp_h.round() as i32,
                 scale,
@@ -196,6 +196,11 @@ mod imp {
             );
             jigsaw.scatter(area_w, area_h);
             *self.jigsaw.borrow_mut() = Some(jigsaw);
+        }
+
+        pub fn reset(&self) {
+            self.create_jigsaw();
+            self.obj().queue_draw();
         }
 
         fn download_daily_image(&self) {
@@ -373,7 +378,11 @@ impl BoardView {
         glib::Object::new()
     }
 
-    pub fn setup(&self, pieces_per_axis: usize, on_win: impl Fn() + 'static) {
-        self.imp().prepare(pieces_per_axis, on_win);
+    pub fn setup(&self, on_win: impl Fn() + 'static) {
+        self.imp().prepare(on_win);
+    }
+
+    pub fn reset(&self) {
+        self.imp().reset();
     }
 }

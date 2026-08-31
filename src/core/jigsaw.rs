@@ -25,7 +25,7 @@ impl Jigsaw {
     /// `scale`: factor from displayed pixels to source image pixels.
     /// `origin_x`/`origin_y`: grid origin within the widget.
     pub fn new(
-        pieces_per_axis: usize,
+        grid_size: usize,
         width: i32,
         height: i32,
         scale: f32,
@@ -41,13 +41,13 @@ impl Jigsaw {
             snap_distance: 0.0,
             solved: false,
         };
-        this.create_pieces(pieces_per_axis, width, height, scale, origin_x, origin_y);
+        this.create_pieces(grid_size, width, height, scale, origin_x, origin_y);
         this
     }
 
     fn create_pieces(
         &mut self,
-        pieces_per_axis: usize,
+        grid_size: usize,
         width: i32,
         height: i32,
         scale: f32,
@@ -58,12 +58,12 @@ impl Jigsaw {
         let h_pieces;
         let piece_size;
         if width >= height {
-            v_pieces = pieces_per_axis;
+            v_pieces = grid_size;
             piece_size = height as usize / v_pieces;
             h_pieces = width as usize / piece_size;
             self.width = piece_size as i32 * h_pieces as i32;
         } else {
-            h_pieces = pieces_per_axis;
+            h_pieces = grid_size;
             piece_size = width as usize / h_pieces;
             v_pieces = height as usize / piece_size;
             self.height = piece_size as i32 * v_pieces as i32;
