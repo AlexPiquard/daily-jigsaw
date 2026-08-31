@@ -1,7 +1,9 @@
 use relm4::{
     Component, ComponentParts, ComponentSender, Controller, SimpleComponent,
     actions::{AccelsPlus, RelmAction, RelmActionGroup},
-    adw, gtk, main_application,
+    adw,
+    gtk::{self, prelude::ButtonExt},
+    main_application,
 };
 
 use gettextrs::gettext;
@@ -69,9 +71,28 @@ impl SimpleComponent for App {
                 set_orientation: gtk::Orientation::Vertical,
 
                 adw::HeaderBar {
-                    pack_end = &gtk::MenuButton {
-                        set_icon_name: "open-menu-symbolic",
-                        set_menu_model: Some(&primary_menu),
+                    pack_end = &gtk::Box {
+                        set_orientation: gtk::Orientation::Horizontal,
+                        set_spacing: 12,
+
+                        gtk::Button {
+                            set_tooltip_text: Some(&gettext("Reset puzzle")),
+                            add_css_class: "destructive-action",
+
+                            connect_clicked[sender] => move |_| {
+                                sender.input(AppMsg::ResetPuzzle);
+                            },
+
+                            adw::ButtonContent {
+                                set_icon_name: "view-refresh-symbolic",
+                                set_label: &gettext("Reset"),
+                            }
+                        },
+
+                        gtk::MenuButton {
+                            set_icon_name: "open-menu-symbolic",
+                            set_menu_model: Some(&primary_menu),
+                        }
                     }
                 },
 
