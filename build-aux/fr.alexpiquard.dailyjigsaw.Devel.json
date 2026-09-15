@@ -38,32 +38,6 @@
 	},
 	"modules": [
 		{
-			"name": "gstreamer",
-			"buildsystem": "meson",
-			"config-opts": [
-				"-Dauto_features=disabled",
-				"-Dbase=enabled",
-				"-Dgood=enabled",
-				"-Dbad=enabled",
-				"-Dugly=enabled",
-				"-Dges=enabled",
-				"-Dgst-plugins-base:gl=enabled",
-				"-Dgst-plugins-base:gl_platform=egl",
-				"-Dgst-plugins-base:gl_winsys=x11,wayland",
-				"-Dgst-plugins-base:x11=enabled",
-				"-Dgst-full-libraries=ges,gl,video,audio,pbutils",
-				"-Dtests=disabled"
-			],
-			"sources": [
-				{
-					"type": "git",
-					"url": "https://gitlab.freedesktop.org/gstreamer/gstreamer.git",
-					"branch": "1.26"
-				}
-			],
-			"cleanup": ["/bin", "/share/man", "/include", "/lib/pkgconfig"]
-		},
-		{
 			"name": "daily-jigsaw",
 			"buildsystem": "meson",
 			"run-tests": true,
