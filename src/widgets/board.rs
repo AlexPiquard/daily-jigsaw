@@ -23,8 +23,19 @@ mod imp {
     use crate::{config::APP_ID, core::jigsaw::Jigsaw};
 
     #[derive(serde::Deserialize)]
-    struct ImageApiResp {
+    struct BingImageResponse {
         url: String,
+    }
+
+    impl BingImageResponse {
+        fn image_url(&self) -> String {
+            format!("https://bing.com{}", self.url)
+        }
+    }
+
+    #[derive(serde::Deserialize)]
+    struct BingResponse {
+        images: Vec<BingImageResponse>,
     }
 
     struct DragState {
@@ -347,14 +358,19 @@ mod imp {
             return Ok(path);
         }
 
-        let mut resp = ureq::get("https://bing.biturl.top/")
+        let mut resp = ureq::get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1")
             .call()
             .context("image request failed")?;
         let json = resp
             .body_mut()
-            .read_json::<ImageApiResp>()
+            .read_json::<BingResponse>()
             .context("failed to read api response")?;
-        let mut img = ureq::get(&json.url)
+        let image_url = json
+            .images
+            .first()
+            .context("invalid api response")?
+            .image_url();
+        let mut img = ureq::get(image_url)
             .call()
             .context("image download failed")?;
         let bytes = img
