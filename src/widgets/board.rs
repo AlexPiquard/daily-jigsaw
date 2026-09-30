@@ -43,7 +43,7 @@ mod imp {
         start_y: f32,
     }
 
-    const BOARD_MARGIN: f32 = 100.0;
+    const BOARD_MARGIN: f32 = 150.0;
 
     #[derive(Default)]
     pub struct BoardView {

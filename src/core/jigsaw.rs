@@ -147,12 +147,46 @@ impl Jigsaw {
 
     pub fn scatter(&mut self, area_w: f32, area_h: f32) {
         let mut rng = rand::rng();
-        for piece in &mut self.pieces {
-            let max_x = (area_w - piece.total_size).max(0.0);
-            let max_y = (area_h - piece.total_size).max(0.0);
-            piece.x = rng.random_range(0.0..=max_x);
-            piece.y = rng.random_range(0.0..=max_y);
+        for i in 0..self.pieces.len() {
+            let (mut min_x, mut max_x, mut min_y, mut max_y) =
+                self.piece_area(i, i, area_w, area_h);
+            if min_x >= max_x || min_y >= max_y {
+                (min_x, max_x, min_y, max_y) = self.piece_area(i, i + 1, area_w, area_h);
+            }
+            let piece = self.pieces.get_mut(i).unwrap();
+            piece.x = rng.random_range(min_x..=max_x.max(0.0));
+            piece.y = rng.random_range(min_y..=max_y.max(0.0));
         }
+    }
+
+    pub fn piece_area(
+        &self,
+        piece_index: usize,
+        side_index: usize,
+        area_w: f32,
+        area_h: f32,
+    ) -> (f32, f32, f32, f32) {
+        let piece = self.pieces.get(piece_index).unwrap();
+        let mut min_x = 0.0;
+        let mut max_x = area_w - piece.total_size;
+        let mut min_y = 0.0;
+        let mut max_y = area_h - piece.total_size;
+        match side_index % 4 {
+            0 => {
+                max_x = self.origin_x - piece.total_size;
+            }
+            1 => {
+                max_y = self.origin_y - piece.total_size;
+            }
+            2 => {
+                min_x = self.origin_x + self.width as f32;
+            }
+            3 => {
+                min_y = self.origin_y + self.height as f32;
+            }
+            _ => unreachable!(),
+        }
+        (min_x, max_x, min_y, max_y)
     }
 }
 
