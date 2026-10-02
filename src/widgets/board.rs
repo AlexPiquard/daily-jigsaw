@@ -5,7 +5,9 @@ use relm4::gtk::subclass::prelude::ObjectSubclassIsExt;
 mod imp {
     use std::{
         cell::{OnceCell, RefCell},
-        path::PathBuf,
+        fs::File,
+        io::BufReader,
+        path::{Path, PathBuf},
         rc::Rc,
     };
 
@@ -20,7 +22,10 @@ mod imp {
         },
     };
 
-    use crate::{config::APP_ID, core::jigsaw::Jigsaw};
+    use crate::{
+        config::APP_ID,
+        core::jigsaw::{BoardTooSmall, Jigsaw, Metrics},
+    };
 
     #[derive(serde::Deserialize)]
     struct BingImageResponse {
@@ -43,8 +48,6 @@ mod imp {
         start_y: f32,
     }
 
-    const BOARD_MARGIN: f32 = 150.0;
-
     #[derive(Default)]
     pub struct BoardView {
         jigsaw: RefCell<Option<Jigsaw>>,
@@ -52,6 +55,7 @@ mod imp {
         drag_state: RefCell<Option<DragState>>,
         texture: RefCell<Option<gtk::gdk::Texture>>,
         on_win: OnceCell<Box<dyn Fn()>>,
+        path: RefCell<Option<PathBuf>>,
     }
 
     #[glib::object_subclass]
@@ -73,23 +77,16 @@ mod imp {
     }
 
     impl WidgetImpl for BoardView {
-        fn realize(&self) {
-            self.parent_realize();
-        }
-
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
             if self.obj().width() <= 0 || self.obj().height() <= 0 {
                 return;
-            }
-
-            if self.jigsaw.borrow().is_none() && self.source.borrow().is_some() {
-                self.create_jigsaw();
             }
 
             let jigsaw = self.jigsaw.borrow();
             let Some(jigsaw) = jigsaw.as_ref() else {
                 return;
             };
+            let metrics = jigsaw.metrics();
 
             let source = self.source.borrow();
             let Some(source) = source.as_ref() else {
@@ -103,10 +100,10 @@ mod imp {
 
             let black = gtk::gdk::RGBA::new(0.0, 0.0, 0.0, 1.0);
             let bounds = gtk::graphene::Rect::new(
-                jigsaw.origin_x,
-                jigsaw.origin_y,
-                jigsaw.width as f32,
-                jigsaw.height as f32,
+                metrics.origin_x,
+                metrics.origin_y,
+                metrics.width as f32,
+                metrics.height as f32,
             );
             let rounded = gtk::gsk::RoundedRect::new(
                 bounds,
@@ -122,13 +119,14 @@ mod imp {
             );
             snapshot.append_node(&border);
 
+            let total_piece_size = metrics.total_piece_size();
             for piece in jigsaw.pieces() {
                 let path = piece.path();
                 let src = piece.source_rect();
 
                 // Build source node: texture with transform
-                let sx = piece.total_size / src.width;
-                let sy = piece.total_size / src.height;
+                let sx = total_piece_size / src.width;
+                let sy = total_piece_size / src.height;
                 let tx = -src.x * sx;
                 let ty = -src.y * sy;
                 let matrix = gtk::graphene::Matrix::from_2d(
@@ -146,7 +144,7 @@ mod imp {
 
                 // Build mask node: white fill of piece path
                 let white = gtk::gdk::RGBA::new(1.0, 1.0, 1.0, 1.0);
-                let bounds = gtk::graphene::Rect::new(0.0, 0.0, piece.total_size, piece.total_size);
+                let bounds = gtk::graphene::Rect::new(0.0, 0.0, total_piece_size, total_piece_size);
                 let color_node = gtk::gsk::ColorNode::new(&white, &bounds);
                 let fill_node =
                     gtk::gsk::FillNode::new(&color_node, path, gtk::gsk::FillRule::Winding);
@@ -162,6 +160,11 @@ mod imp {
                 snapshot.append_node(&translated);
             }
         }
+
+        fn size_allocate(&self, width: i32, height: i32, baseline: i32) {
+            self.parent_size_allocate(width, height, baseline);
+            self.try_create_jigsaw();
+        }
     }
 
     impl BoardView {
@@ -169,64 +172,96 @@ mod imp {
             if self.on_win.set(Box::new(on_win)).is_err() {
                 return;
             }
-            self.download_daily_image();
+
+            let this = self.obj().clone();
+            self.download_daily_image(move |path| {
+                this.imp().set_source(path);
+                this.queue_draw();
+                this.imp().try_create_jigsaw();
+            });
         }
 
-        pub fn create_jigsaw(&self) {
-            let grid_size = gtk::gio::Settings::new(*APP_ID)
+        pub fn shutdown(&self) {
+            if let Err(e) = self.write_state() {
+                tracing::error!("board shutdown: {e:#}");
+            }
+        }
+
+        pub fn try_create_jigsaw(&self) {
+            if self.jigsaw.borrow().is_some() || self.source.borrow().is_none() {
+                return;
+            }
+
+            match self.create_jigsaw() {
+                Ok(()) => (),
+                // too small to hold the puzzle: stay quiet, `size_allocate` will
+                // try again once the widget is big enough
+                Err(e) if e.downcast_ref::<BoardTooSmall>().is_some() => (),
+                Err(e) => tracing::error!("failed to create jigsaw: {e:#}"),
+            }
+        }
+
+        fn grid_size(&self) -> usize {
+            gtk::gio::Settings::new(*APP_ID)
                 .int("grid-size")
-                .clamp(3, 10) as usize;
+                .clamp(3, 10) as usize
+        }
+
+        pub fn setup_metrics(&self) -> anyhow::Result<Metrics> {
+            let grid_size = self.grid_size();
 
             let area_w = self.obj().width() as f32;
             let area_h = self.obj().height() as f32;
             let source = self.source.borrow();
-            let Some(source) = source.as_ref() else {
-                return;
-            };
+            let source = source.as_ref().context("no source")?;
             let img_w = source.width() as f32;
             let img_h = source.height() as f32;
 
-            // fit the image into the available area
-            let avail_w = (area_w - 2.0 * BOARD_MARGIN).max(1.0);
-            let avail_h = (area_h - 2.0 * BOARD_MARGIN).max(1.0);
-            let scale = (avail_w / img_w).min(avail_h / img_h).min(1.0);
-            let disp_w = img_w * scale;
-            let disp_h = img_h * scale;
+            Ok(Metrics::try_new(grid_size, area_w, area_h, img_w, img_h)?)
+        }
 
-            // center the leftover space if aspect ratios differ
-            let origin_x = BOARD_MARGIN + (avail_w - disp_w) / 2.0;
-            let origin_y = BOARD_MARGIN + (avail_h - disp_h) / 2.0;
+        pub fn create_jigsaw(&self) -> anyhow::Result<()> {
+            let jigsaw = match self.load_state() {
+                Ok(Some(jigsaw)) => Some(jigsaw),
+                Ok(None) => None,
+                Err(e) => {
+                    tracing::warn!("failed to load jigsaw state: {e:#}");
+                    None
+                }
+            };
 
-            let mut jigsaw = Jigsaw::new(
-                grid_size,
-                disp_w.round() as i32,
-                disp_h.round() as i32,
-                scale,
-                origin_x,
-                origin_y,
-            );
-            jigsaw.scatter(area_w, area_h);
+            let jigsaw = jigsaw
+                .map(Ok)
+                .unwrap_or_else(|| -> anyhow::Result<Jigsaw> {
+                    let path = self.path.borrow().clone().context("no image path")?;
+                    let mut jigsaw = Jigsaw::new(self.setup_metrics()?, path);
+                    jigsaw.scatter();
+                    Ok(jigsaw)
+                })?;
+
             *self.jigsaw.borrow_mut() = Some(jigsaw);
+            Ok(())
         }
 
-        pub fn reset(&self) {
-            self.create_jigsaw();
+        pub fn reset(&self) -> anyhow::Result<()> {
+            // start over: the saved state describes the puzzle the user is leaving
+            Self::delete_state(&Self::state_file()?)?;
+            self.create_jigsaw()?;
             self.obj().queue_draw();
+            Ok(())
         }
 
-        fn download_daily_image(&self) {
+        fn download_daily_image(&self, then: impl Fn(PathBuf) + 'static) {
             let (tx, rx) = flume::unbounded::<Result<PathBuf, String>>();
             std::thread::spawn(move || {
                 let _ = tx.send(download_daily_image_blocking().map_err(|e| format!("{e:#}")));
             });
 
-            let this = self.obj().clone();
             glib::spawn_future_local(async move {
                 while let Ok(res) = rx.recv_async().await {
                     match res {
                         Ok(path) => {
-                            this.imp().set_source(path);
-                            this.queue_draw();
+                            then(path);
                         }
                         Err(e) => {
                             tracing::error!("daily image: {e:#}");
@@ -310,7 +345,7 @@ mod imp {
                             * (current_piece.x - piece.start_x)
                             + (current_piece.y - piece.start_y) * (current_piece.y - piece.start_y);
 
-                        if distance < jigsaw.snap_distance {
+                        if distance < jigsaw.metrics().snap_distance {
                             snap_to = Some((piece.start_x, piece.start_y));
                         }
                     }
@@ -341,6 +376,78 @@ mod imp {
             let source = Rc::new(source);
             *self.texture.borrow_mut() = Some(gtk::gdk::Texture::for_pixbuf(&source));
             *self.source.borrow_mut() = Some(source);
+            *self.path.borrow_mut() = Some(path);
+        }
+
+        fn state_file() -> anyhow::Result<PathBuf> {
+            let dir = glib::user_state_dir().join(*APP_ID);
+            std::fs::create_dir_all(&dir).context("failed to create state dir")?;
+            Ok(dir.join("state.json"))
+        }
+
+        fn delete_state(state_file: &Path) -> anyhow::Result<()> {
+            match std::fs::remove_file(state_file) {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => {
+                    Err(e).with_context(|| format!("failed to remove {}", state_file.display()))
+                }
+            }
+        }
+
+        fn write_state(&self) -> anyhow::Result<()> {
+            let jigsaw = self.jigsaw.borrow();
+            let Some(jigsaw) = jigsaw.as_ref() else {
+                return Ok(());
+            };
+            let state_file = Self::state_file()?;
+
+            if jigsaw.is_solved() {
+                return Self::delete_state(&state_file);
+            }
+
+            let json = serde_json::to_string(jigsaw).context("failed to stringify jigsaw state")?;
+            let tmp_file = state_file.with_extension("json.tmp");
+            std::fs::write(&tmp_file, json)
+                .with_context(|| format!("failed to write {}", tmp_file.display()))?;
+            // rename is atomic: a crash while writing can't leave a truncated state behind
+            std::fs::rename(&tmp_file, &state_file)
+                .with_context(|| format!("failed to rename {}", tmp_file.display()))?;
+
+            Ok(())
+        }
+
+        fn load_state(&self) -> anyhow::Result<Option<Jigsaw>> {
+            let state_file = Self::state_file()?;
+            if !state_file.try_exists()? {
+                return Ok(None);
+            }
+            let file = File::open(state_file)?;
+
+            let reader = BufReader::new(file);
+            let mut jigsaw: Jigsaw = serde_json::from_reader(reader)?;
+
+            let path = self.path.borrow();
+            let path = path.as_deref().context("no image path")?;
+            if !jigsaw.path_eq(path) {
+                return Ok(None);
+            }
+
+            let metrics = match self.setup_metrics() {
+                Ok(metrics) => metrics,
+                // a board too small for a grid can't have a state matching it
+                Err(e) if e.downcast_ref::<BoardTooSmall>().is_some() => return Ok(None),
+                Err(e) => return Err(e),
+            };
+            // the piece count depends on the widget size and on `grid-size`: a state
+            // saved with other metrics describes another puzzle
+            if jigsaw.pieces().len() != metrics.h_pieces * metrics.v_pieces {
+                tracing::debug!("saved state has another grid, starting a new puzzle");
+                return Ok(None);
+            }
+
+            jigsaw.set_metrics(metrics);
+            Ok(Some(jigsaw))
         }
     }
 
@@ -399,6 +506,12 @@ impl BoardView {
     }
 
     pub fn reset(&self) {
-        self.imp().reset();
+        if let Err(e) = self.imp().reset() {
+            tracing::error!("failed to reset puzzle: {e:#}");
+        }
+    }
+
+    pub fn shutdown(&self) {
+        self.imp().shutdown();
     }
 }

@@ -47,7 +47,7 @@ impl SimpleComponent for PreferencesDialog {
         });
 
         let helpers = adw::SwitchRow::builder()
-            .title(&gettext("Helpers"))
+            .title(gettext("Helpers"))
             .active(settings.boolean("helpers"))
             .build();
 
@@ -57,13 +57,13 @@ impl SimpleComponent for PreferencesDialog {
         });
 
         let group = adw::PreferencesGroup::builder()
-            .title(&gettext("Game"))
+            .title(gettext("Game"))
             .build();
         group.add(&grid_size);
         group.add(&helpers);
 
         let page = adw::PreferencesPage::builder()
-            .title(&gettext("General"))
+            .title(gettext("General"))
             .icon_name("preferences-system-symbolic")
             .build();
         page.add(&group);

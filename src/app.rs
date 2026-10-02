@@ -193,6 +193,7 @@ impl SimpleComponent for App {
 
     fn shutdown(&mut self, widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
         widgets.save_window_size().unwrap();
+        self.board.shutdown();
     }
 }
 
