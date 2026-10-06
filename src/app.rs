@@ -132,12 +132,14 @@ impl SimpleComponent for App {
             move || {
                 overlay.add_toast(adw::Toast::new(&gettext("Puzzle solved!")));
             },
-            move |_e| {
-                let toast = adw::Toast::new(&gettext("Couldn't download today's image"));
-                toast.set_button_label(Some(&gettext("Retry")));
-                // the toast closes itself when its button is clicked
-                let sender = error_sender.clone();
-                toast.connect_button_clicked(move |_| sender.input(AppMsg::RetryDownload));
+            move |msg, retry| {
+                let toast = adw::Toast::new(&msg);
+                if retry {
+                    toast.set_button_label(Some(&gettext("Retry")));
+                    // the toast closes itself when its button is clicked
+                    let sender = error_sender.clone();
+                    toast.connect_button_clicked(move |_| sender.input(AppMsg::RetryDownload));
+                }
                 // don't let the error disappear on its own
                 toast.set_timeout(0);
                 error_overlay.add_toast(toast);

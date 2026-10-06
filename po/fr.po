@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: daily-jigsaw\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-06 15:23+0200\n"
+"POT-Creation-Date: 2026-10-12 16:23+0200\n"
 "PO-Revision-Date: 2026-08-25 19:07+0200\n"
 "Last-Translator: alex <alex.piquard@hotmail.com>\n"
 "Language-Team: French <traduc@traduc.org>\n"
@@ -80,11 +80,7 @@ msgstr "Réinitialiser"
 msgid "Puzzle solved!"
 msgstr "Puzzle terminé !"
 
-#: src/app.rs:136
-msgid "Couldn't download today's image"
-msgstr "Echec du téléchargement de l'image du jour"
-
-#: src/app.rs:137
+#: src/app.rs:138
 msgid "Retry"
 msgstr "Réessayer"
 
@@ -103,3 +99,11 @@ msgstr "Jeu"
 #: src/modals/preferences.rs:66
 msgid "General"
 msgstr "Général"
+
+#: src/widgets/board.rs:172 src/widgets/board.rs:297
+msgid "Couldn't create jigsaw"
+msgstr "Echec de la création du puzzle"
+
+#: src/widgets/board.rs:303
+msgid "Couldn't download today's image"
+msgstr "Echec du téléchargement de l'image du jour"

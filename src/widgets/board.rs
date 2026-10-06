@@ -4,15 +4,14 @@ use relm4::gtk::subclass::prelude::ObjectSubclassIsExt;
 
 mod imp {
     use std::{
-        cell::{Cell, OnceCell, RefCell},
-        fs::File,
-        io::BufReader,
+        cell::{Cell, OnceCell, Ref, RefCell, RefMut},
         path::{Path, PathBuf},
         rc::Rc,
         time::{Duration, SystemTime},
     };
 
     use anyhow::Context;
+    use gettextrs::gettext;
     use relm4::{
         adw::subclass::prelude::{ObjectImpl, ObjectSubclass},
         gtk::{
@@ -25,7 +24,7 @@ mod imp {
 
     use crate::{
         config::APP_ID,
-        core::jigsaw::{BoardTooSmall, Jigsaw, Metrics},
+        core::jigsaw::{BoardMetrics, BoardTooSmall, Jigsaw},
     };
 
     #[derive(serde::Deserialize)]
@@ -56,7 +55,7 @@ mod imp {
         drag_state: RefCell<Option<DragState>>,
         texture: RefCell<Option<gtk::gdk::Texture>>,
         on_win: OnceCell<Box<dyn Fn()>>,
-        on_error: OnceCell<Box<dyn Fn(String)>>,
+        on_error: OnceCell<Box<dyn Fn(String, bool)>>,
         downloading: Rc<Cell<bool>>,
         path: RefCell<Option<PathBuf>>,
     }
@@ -166,12 +165,21 @@ mod imp {
 
         fn size_allocate(&self, width: i32, height: i32, baseline: i32) {
             self.parent_size_allocate(width, height, baseline);
-            self.try_create_jigsaw();
+            if let Err(e) = self.try_create_jigsaw()
+                && let Some(on_error) = self.on_error.get()
+            {
+                tracing::error!("create jigsaw: {e:#}");
+                on_error(gettext("Couldn't create jigsaw"), true);
+            }
         }
     }
 
     impl BoardView {
-        pub fn prepare(&self, on_win: impl Fn() + 'static, on_error: impl Fn(String) + 'static) {
+        pub fn prepare(
+            &self,
+            on_win: impl Fn() + 'static,
+            on_error: impl Fn(String, bool) + 'static,
+        ) {
             if self.on_win.set(Box::new(on_win)).is_err() {
                 return;
             }
@@ -182,24 +190,54 @@ mod imp {
             self.download_daily_image();
         }
 
+        fn jigsaw(&self) -> Ref<'_, Jigsaw> {
+            Ref::map(self.jigsaw.borrow(), |j| {
+                j.as_ref().expect("jisgaw should be defined")
+            })
+        }
+
+        fn jigsaw_mut(&self) -> RefMut<'_, Jigsaw> {
+            RefMut::map(self.jigsaw.borrow_mut(), |j| {
+                j.as_mut().expect("jisgaw should be defined")
+            })
+        }
+
         pub fn shutdown(&self) {
-            if let Err(e) = self.write_state() {
+            if self.jigsaw.borrow().is_some()
+                && let Err(e) = self.jigsaw().write_state()
+            {
                 tracing::error!("board shutdown: {e:#}");
             }
         }
 
-        pub fn try_create_jigsaw(&self) {
-            if self.jigsaw.borrow().is_some() || self.source.borrow().is_none() {
-                return;
+        pub fn try_create_jigsaw(&self) -> anyhow::Result<()> {
+            let board_metrics = self.board_metrics()?;
+
+            if self.jigsaw.borrow().is_some()
+                || self.source.borrow().is_none()
+                || board_metrics.area_w <= 0.0
+                || board_metrics.area_h <= 0.0
+            {
+                return Ok(());
             }
 
-            match self.create_jigsaw() {
-                Ok(()) => (),
-                // too small to hold the puzzle: stay quiet, `size_allocate` will
-                // try again once the widget is big enough
-                Err(e) if e.downcast_ref::<BoardTooSmall>().is_some() => (),
-                Err(e) => tracing::error!("failed to create jigsaw: {e:#}"),
-            }
+            let path = self.path.borrow();
+            let Some(path) = path.as_ref() else {
+                anyhow::bail!("image path is not defined");
+            };
+            let jigsaw: Option<Jigsaw> =
+                match Jigsaw::load_or_create_jigsaw(path.clone(), board_metrics) {
+                    Ok(jigsaw) => Some(jigsaw),
+                    // too small to hold the puzzle: stay quiet, `size_allocate` will
+                    // try again once the widget is big enough
+                    Err(e) if e.downcast_ref::<BoardTooSmall>().is_some() => None,
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+
+            *self.jigsaw.borrow_mut() = jigsaw;
+            Ok(())
         }
 
         fn grid_size(&self) -> usize {
@@ -208,7 +246,7 @@ mod imp {
                 .clamp(3, 10) as usize
         }
 
-        pub fn setup_metrics(&self) -> anyhow::Result<Metrics> {
+        fn board_metrics(&self) -> anyhow::Result<BoardMetrics> {
             let grid_size = self.grid_size();
 
             let area_w = self.obj().width() as f32;
@@ -218,36 +256,17 @@ mod imp {
             let img_w = source.width() as f32;
             let img_h = source.height() as f32;
 
-            Ok(Metrics::try_new(grid_size, area_w, area_h, img_w, img_h)?)
-        }
-
-        pub fn create_jigsaw(&self) -> anyhow::Result<()> {
-            let jigsaw = match self.load_state() {
-                Ok(Some(jigsaw)) => Some(jigsaw),
-                Ok(None) => None,
-                Err(e) => {
-                    tracing::warn!("failed to load jigsaw state: {e:#}");
-                    None
-                }
-            };
-
-            let jigsaw = jigsaw
-                .map(Ok)
-                .unwrap_or_else(|| -> anyhow::Result<Jigsaw> {
-                    let path = self.path.borrow().clone().context("no image path")?;
-                    let mut jigsaw = Jigsaw::new(self.setup_metrics()?, path);
-                    jigsaw.scatter();
-                    Ok(jigsaw)
-                })?;
-
-            *self.jigsaw.borrow_mut() = Some(jigsaw);
-            Ok(())
+            Ok(BoardMetrics {
+                grid_size,
+                area_w,
+                area_h,
+                img_w,
+                img_h,
+            })
         }
 
         pub fn reset(&self) -> anyhow::Result<()> {
-            // start over: the saved state describes the puzzle the user is leaving
-            Self::delete_state(&Self::state_file()?)?;
-            self.create_jigsaw()?;
+            self.jigsaw_mut().reset(self.board_metrics()?)?;
             self.obj().queue_draw();
             Ok(())
         }
@@ -270,12 +289,18 @@ mod imp {
                         Ok(path) => {
                             this.imp().set_source(path);
                             this.queue_draw();
-                            this.imp().try_create_jigsaw();
+
+                            if let Err(e) = this.imp().try_create_jigsaw()
+                                && let Some(on_error) = this.imp().on_error.get()
+                            {
+                                tracing::error!("create jigsaw: {e:#}");
+                                on_error(gettext("Couldn't create jigsaw"), true);
+                            }
                         }
                         Err(e) => {
-                            tracing::error!("daily image: {e}");
+                            tracing::error!("daily image: {e:#}");
                             if let Some(on_error) = this.imp().on_error.get() {
-                                on_error(e);
+                                on_error(gettext("Couldn't download today's image"), true);
                             }
                         }
                     }
@@ -291,10 +316,7 @@ mod imp {
             let this = self.obj().clone();
             gesture.connect_drag_begin(move |_gesture, start_x, start_y| {
                 let imp = this.imp();
-                let mut jigsaw = this.imp().jigsaw.borrow_mut();
-                let Some(jigsaw) = jigsaw.as_mut() else {
-                    return;
-                };
+                let mut jigsaw = this.imp().jigsaw_mut();
                 let pieces = jigsaw.pieces();
 
                 // Hit test: find topmost piece under the cursor (reverse order = top first)
@@ -331,24 +353,18 @@ mod imp {
                     return;
                 };
 
-                let mut jigsaw = this.imp().jigsaw.borrow_mut();
-                let Some(jigsaw) = jigsaw.as_mut() else {
-                    return;
-                };
+                let mut jigsaw = this.imp().jigsaw_mut();
 
                 let x = state.start_x + offset_x as f32;
                 let y = state.start_y + offset_y as f32;
 
-                this.imp().move_piece_to(jigsaw, x, y);
+                this.imp().move_piece_to(&mut jigsaw, x, y);
                 this.queue_draw();
             });
 
             let this = self.obj().clone();
             gesture.connect_drag_end(move |_gesture, _offset_x, _offset_y| {
-                let mut jigsaw = this.imp().jigsaw.borrow_mut();
-                let Some(jigsaw) = jigsaw.as_mut() else {
-                    return;
-                };
+                let mut jigsaw = this.imp().jigsaw_mut();
 
                 let pieces = jigsaw.pieces();
                 let mut snap_to: Option<(f32, f32)> = None;
@@ -364,7 +380,7 @@ mod imp {
                     }
                 }
                 if let Some((x, y)) = snap_to {
-                    this.imp().move_piece_to(jigsaw, x, y);
+                    this.imp().move_piece_to(&mut jigsaw, x, y);
                     this.queue_draw();
                 }
                 *this.imp().drag_state.borrow_mut() = None;
@@ -390,77 +406,6 @@ mod imp {
             *self.texture.borrow_mut() = Some(gtk::gdk::Texture::for_pixbuf(&source));
             *self.source.borrow_mut() = Some(source);
             *self.path.borrow_mut() = Some(path);
-        }
-
-        fn state_file() -> anyhow::Result<PathBuf> {
-            let dir = glib::user_state_dir().join(*APP_ID);
-            std::fs::create_dir_all(&dir).context("failed to create state dir")?;
-            Ok(dir.join("state.json"))
-        }
-
-        fn delete_state(state_file: &Path) -> anyhow::Result<()> {
-            match std::fs::remove_file(state_file) {
-                Ok(()) => Ok(()),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(e) => {
-                    Err(e).with_context(|| format!("failed to remove {}", state_file.display()))
-                }
-            }
-        }
-
-        fn write_state(&self) -> anyhow::Result<()> {
-            let jigsaw = self.jigsaw.borrow();
-            let Some(jigsaw) = jigsaw.as_ref() else {
-                return Ok(());
-            };
-            let state_file = Self::state_file()?;
-
-            if jigsaw.is_solved() {
-                return Self::delete_state(&state_file);
-            }
-
-            let json = serde_json::to_string(jigsaw).context("failed to stringify jigsaw state")?;
-            let tmp_file = state_file.with_extension("json.tmp");
-            std::fs::write(&tmp_file, json)
-                .with_context(|| format!("failed to write {}", tmp_file.display()))?;
-            // rename is atomic: a crash while writing can't leave a truncated state behind
-            std::fs::rename(&tmp_file, &state_file)
-                .with_context(|| format!("failed to rename {}", tmp_file.display()))?;
-
-            Ok(())
-        }
-
-        fn load_state(&self) -> anyhow::Result<Option<Jigsaw>> {
-            let state_file = Self::state_file()?;
-            if !state_file.try_exists()? {
-                return Ok(None);
-            }
-            let file = File::open(state_file)?;
-
-            let reader = BufReader::new(file);
-            let mut jigsaw: Jigsaw = serde_json::from_reader(reader)?;
-
-            let path = self.path.borrow();
-            let path = path.as_deref().context("no image path")?;
-            if !jigsaw.path_eq(path) {
-                return Ok(None);
-            }
-
-            let metrics = match self.setup_metrics() {
-                Ok(metrics) => metrics,
-                // a board too small for a grid can't have a state matching it
-                Err(e) if e.downcast_ref::<BoardTooSmall>().is_some() => return Ok(None),
-                Err(e) => return Err(e),
-            };
-            // the piece count depends on the widget size and on `grid-size`: a state
-            // saved with other metrics describes another puzzle
-            if jigsaw.pieces().len() != metrics.h_pieces * metrics.v_pieces {
-                tracing::debug!("saved state has another grid, starting a new puzzle");
-                return Ok(None);
-            }
-
-            jigsaw.set_metrics(metrics);
-            Ok(Some(jigsaw))
         }
     }
 
@@ -575,7 +520,7 @@ impl BoardView {
         glib::Object::new()
     }
 
-    pub fn setup(&self, on_win: impl Fn() + 'static, on_error: impl Fn(String) + 'static) {
+    pub fn setup(&self, on_win: impl Fn() + 'static, on_error: impl Fn(String, bool) + 'static) {
         self.imp().prepare(on_win, on_error);
     }
 

@@ -1,10 +1,16 @@
 use std::{
-    cell::OnceCell,
+    cell::{OnceCell, Ref, RefCell},
+    fs::File,
+    io::BufReader,
     path::{Path, PathBuf},
     rc::Rc,
 };
 
+use anyhow::Context;
 use rand::Rng;
+use relm4::gtk::glib::{self};
+
+use crate::config::APP_ID;
 
 pub const ARC_RATIO: f32 = 1.0 / 6.0;
 const LEFT_ANGLE: f64 = std::f64::consts::PI;
@@ -13,19 +19,29 @@ const TOP_ANGLE: f64 = 1.5 * std::f64::consts::PI;
 const BOTTOM_ANGLE: f64 = 0.5 * std::f64::consts::PI;
 const ARC_SEGMENTS: i32 = 20;
 const BOARD_MARGIN: f32 = 150.0;
+const MIN_PIECE_SIZE: f32 = 50.0;
+
+pub struct BoardMetrics {
+    pub grid_size: usize,
+    pub area_w: f32,
+    pub area_h: f32,
+    pub img_w: f32,
+    pub img_h: f32,
+}
 
 /// `width`/`height`: displayed puzzle size, in widget pixels.
+/// `area_w`/`area_h`: board size.
 /// `scale`: factor from displayed pixels to source image pixels.
 /// `origin_x`/`origin_y`: grid origin within the widget.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Metrics {
     pub snap_distance: f32,
     pub width: i32,
     pub height: i32,
-    pub origin_x: f32,
-    pub origin_y: f32,
     pub area_w: f32,
     pub area_h: f32,
+    pub origin_x: f32,
+    pub origin_y: f32,
     pub piece_size: f32,
     pub h_pieces: usize,
     pub v_pieces: usize,
@@ -50,13 +66,28 @@ impl Metrics {
 
     /// `Err(BoardTooSmall)` when the area can't be cut into pieces of at least one
     /// pixel, which would make the piece counts degenerate.
-    pub fn try_new(
-        grid_size: usize,
-        area_w: f32,
-        area_h: f32,
-        img_w: f32,
-        img_h: f32,
-    ) -> Result<Self, BoardTooSmall> {
+    pub fn try_new(board_metrics: BoardMetrics) -> Result<Self, BoardTooSmall> {
+        let mut metrics = Metrics {
+            area_w: board_metrics.area_w,
+            area_h: board_metrics.area_h,
+            grid_size: board_metrics.grid_size,
+            ..Default::default()
+        };
+
+        metrics.reset(board_metrics)?;
+
+        Ok(metrics)
+    }
+
+    fn reset(&mut self, board_metrics: BoardMetrics) -> Result<(), BoardTooSmall> {
+        let BoardMetrics {
+            grid_size,
+            area_w,
+            area_h,
+            img_w,
+            img_h,
+        } = board_metrics;
+
         if grid_size == 0 || img_w <= 0.0 || img_h <= 0.0 {
             return Err(BoardTooSmall);
         }
@@ -89,35 +120,67 @@ impl Metrics {
             height = piece_size as i32 * v_pieces as i32;
         }
 
-        if piece_size < 1.0 || h_pieces == 0 || v_pieces == 0 {
+        if piece_size < MIN_PIECE_SIZE || h_pieces == 0 || v_pieces == 0 {
             return Err(BoardTooSmall);
         }
 
-        Ok(Metrics {
-            snap_distance: (piece_size / 3.0) * (piece_size / 3.0),
-            width,
-            height,
-            origin_x,
-            origin_y,
-            area_w,
-            area_h,
-            piece_size,
-            h_pieces,
-            v_pieces,
-            scale,
-            grid_size,
-        })
+        self.snap_distance = (piece_size / 2.0) * (piece_size / 2.0);
+        self.width = width;
+        self.height = height;
+        self.area_w = area_w;
+        self.area_h = area_h;
+        self.origin_x = origin_x;
+        self.origin_y = origin_y;
+        self.piece_size = piece_size;
+        self.h_pieces = h_pieces;
+        self.v_pieces = v_pieces;
+        self.scale = scale;
+        self.grid_size = grid_size;
+
+        Ok(())
     }
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(into = "JigsawDto", try_from = "JigsawDto")]
 pub struct Jigsaw {
     #[serde(skip)]
     solved: bool,
     pieces: Vec<Piece>,
     #[serde(skip)]
-    metrics: Rc<Metrics>,
+    metrics: RefCell<Rc<Metrics>>,
     path: PathBuf,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct JigsawDto {
+    pieces: Vec<Piece>,
+    metrics: Metrics,
+    path: PathBuf,
+}
+
+impl From<Jigsaw> for JigsawDto {
+    fn from(val: Jigsaw) -> Self {
+        let metrics = (**val.metrics()).clone();
+        JigsawDto {
+            pieces: val.pieces,
+            metrics,
+            path: val.path,
+        }
+    }
+}
+
+impl TryFrom<JigsawDto> for Jigsaw {
+    type Error = anyhow::Error;
+    fn try_from(dto: JigsawDto) -> Result<Self, Self::Error> {
+        let metrics = RefCell::new(Rc::new(dto.metrics));
+        Ok(Jigsaw {
+            pieces: dto.pieces,
+            metrics,
+            path: dto.path,
+            solved: false,
+        })
+    }
 }
 
 impl Jigsaw {
@@ -125,7 +188,7 @@ impl Jigsaw {
         let mut this = Self {
             pieces: vec![],
             solved: false,
-            metrics: Rc::new(metrics),
+            metrics: RefCell::new(Rc::new(metrics)),
             path,
         };
         this.create_pieces();
@@ -133,8 +196,8 @@ impl Jigsaw {
     }
 
     fn create_pieces(&mut self) {
-        let v_pieces = self.metrics.v_pieces;
-        let h_pieces = self.metrics.h_pieces;
+        let v_pieces = self.metrics().v_pieces;
+        let h_pieces = self.metrics().h_pieces;
         // bitwise for right & bottom holes in pieces at y, x
         // bit 0 = bottom hole, bit 1 = right hole
         let mut holes: Vec<Vec<u8>> = vec![vec![0u8; h_pieces]; v_pieces];
@@ -166,8 +229,9 @@ impl Jigsaw {
                 holes[y][x] = (bottom_hole.unwrap_or(false) as u8)
                     | ((right_hole.unwrap_or(false) as u8) << 1);
 
+                let metrics = self.metrics().clone();
                 self.pieces.push(Piece::new(
-                    self.metrics.clone(),
+                    metrics,
                     x,
                     y,
                     top_hole,
@@ -179,16 +243,8 @@ impl Jigsaw {
         }
     }
 
-    pub fn set_metrics(&mut self, metrics: Metrics) {
-        let metrics = Rc::new(metrics);
-        self.metrics = metrics.clone();
-        for piece in self.pieces.iter() {
-            piece.set_metrics(metrics.clone());
-        }
-    }
-
-    pub fn metrics(&self) -> Rc<Metrics> {
-        self.metrics.clone()
+    pub fn metrics(&self) -> Ref<'_, Rc<Metrics>> {
+        self.metrics.borrow()
     }
 
     pub fn pieces(&self) -> &[Piece] {
@@ -241,7 +297,7 @@ impl Jigsaw {
     }
 
     pub fn piece_area(&self, side_index: usize) -> (f32, f32, f32, f32) {
-        let metrics = self.metrics.clone();
+        let metrics = self.metrics().clone();
         let total_piece_size = metrics.total_piece_size();
         let mut min_x = 0.0;
         let mut max_x = metrics.area_w - total_piece_size;
@@ -264,9 +320,103 @@ impl Jigsaw {
         }
         (min_x, max_x, min_y, max_y)
     }
+
+    pub fn reset(&mut self, board_metrics: BoardMetrics) -> anyhow::Result<()> {
+        let mut metrics = (**self.metrics()).clone();
+        metrics.reset(board_metrics)?;
+        *self.metrics.borrow_mut() = Rc::new(metrics);
+        self.pieces.clear();
+        self.create_pieces();
+        self.scatter();
+        Ok(())
+    }
+
+    fn state_file() -> anyhow::Result<PathBuf> {
+        let dir = glib::user_state_dir().join(*APP_ID);
+        std::fs::create_dir_all(&dir).context("failed to create state dir")?;
+        Ok(dir.join("state.json"))
+    }
+
+    pub fn delete_state(state_file: &Path) -> anyhow::Result<()> {
+        match std::fs::remove_file(state_file) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e).with_context(|| format!("failed to remove {}", state_file.display())),
+        }
+    }
+
+    pub fn write_state(&self) -> anyhow::Result<()> {
+        let state_file = Self::state_file()?;
+
+        if self.is_solved() {
+            return Self::delete_state(&state_file);
+        }
+
+        let json = serde_json::to_string(self).context("failed to stringify jigsaw state")?;
+        let tmp_file = state_file.with_extension("json.tmp");
+        std::fs::write(&tmp_file, json)
+            .with_context(|| format!("failed to write {}", tmp_file.display()))?;
+        // rename is atomic: a crash while writing can't leave a truncated state behind
+        std::fs::rename(&tmp_file, &state_file)
+            .with_context(|| format!("failed to rename {}", tmp_file.display()))?;
+
+        Ok(())
+    }
+
+    fn load_state(image_path: &Path, grid_size: usize) -> anyhow::Result<Option<Jigsaw>> {
+        let state_file = Self::state_file()?;
+        if !state_file.try_exists()? {
+            return Ok(None);
+        }
+
+        let file = File::open(state_file)?;
+
+        let reader = BufReader::new(file);
+        let jigsaw: Jigsaw = serde_json::from_reader(reader)?;
+
+        if !jigsaw.path_eq(image_path) {
+            return Ok(None);
+        }
+
+        if jigsaw.metrics().grid_size != grid_size {
+            tracing::debug!("saved state has another grid, starting a new puzzle");
+            return Ok(None);
+        }
+
+        for piece in jigsaw.pieces.iter() {
+            piece.set_metrics(jigsaw.metrics().clone());
+        }
+
+        Ok(Some(jigsaw))
+    }
+
+    pub fn load_or_create_jigsaw(
+        image_path: PathBuf,
+        board_metrics: BoardMetrics,
+    ) -> anyhow::Result<Jigsaw> {
+        let jigsaw = match Self::load_state(&image_path, board_metrics.grid_size) {
+            Ok(Some(jigsaw)) => Some(jigsaw),
+            Ok(None) => None,
+            Err(e) => {
+                tracing::warn!("failed to load jigsaw state: {e:#}");
+                None
+            }
+        };
+
+        let jigsaw = jigsaw
+            .map(Ok)
+            .unwrap_or_else(|| -> anyhow::Result<Jigsaw> {
+                let metrics = Metrics::try_new(board_metrics)?;
+                let mut jigsaw = Jigsaw::new(metrics, image_path);
+                jigsaw.scatter();
+                Ok(jigsaw)
+            })?;
+
+        Ok(jigsaw)
+    }
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Piece {
     #[serde(skip)]
     metrics: OnceCell<Rc<Metrics>>,
