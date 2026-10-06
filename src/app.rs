@@ -27,6 +27,7 @@ pub(super) enum AppMsg {
     Quit,
     OpenPreferences,
     ResetPuzzle,
+    RetryDownload,
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
@@ -125,9 +126,23 @@ impl SimpleComponent for App {
         };
 
         let overlay = widgets.toast_overlay.clone();
-        model.board.setup(move || {
-            overlay.add_toast(adw::Toast::new(&gettext("Puzzle solved!")));
-        });
+        let error_overlay = overlay.clone();
+        let error_sender = sender.clone();
+        model.board.setup(
+            move || {
+                overlay.add_toast(adw::Toast::new(&gettext("Puzzle solved!")));
+            },
+            move |_e| {
+                let toast = adw::Toast::new(&gettext("Couldn't download today's image"));
+                toast.set_button_label(Some(&gettext("Retry")));
+                // the toast closes itself when its button is clicked
+                let sender = error_sender.clone();
+                toast.connect_button_clicked(move |_| sender.input(AppMsg::RetryDownload));
+                // don't let the error disappear on its own
+                toast.set_timeout(0);
+                error_overlay.add_toast(toast);
+            },
+        );
 
         widgets.content_box.append(&model.board);
 
@@ -187,6 +202,9 @@ impl SimpleComponent for App {
             }
             AppMsg::ResetPuzzle => {
                 self.board.reset();
+            }
+            AppMsg::RetryDownload => {
+                self.board.retry_download();
             }
         }
     }

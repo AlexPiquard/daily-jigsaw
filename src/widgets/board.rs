@@ -4,11 +4,12 @@ use relm4::gtk::subclass::prelude::ObjectSubclassIsExt;
 
 mod imp {
     use std::{
-        cell::{OnceCell, RefCell},
+        cell::{Cell, OnceCell, RefCell},
         fs::File,
         io::BufReader,
         path::{Path, PathBuf},
         rc::Rc,
+        time::{Duration, SystemTime},
     };
 
     use anyhow::Context;
@@ -55,6 +56,8 @@ mod imp {
         drag_state: RefCell<Option<DragState>>,
         texture: RefCell<Option<gtk::gdk::Texture>>,
         on_win: OnceCell<Box<dyn Fn()>>,
+        on_error: OnceCell<Box<dyn Fn(String)>>,
+        downloading: Rc<Cell<bool>>,
         path: RefCell<Option<PathBuf>>,
     }
 
@@ -168,17 +171,15 @@ mod imp {
     }
 
     impl BoardView {
-        pub fn prepare(&self, on_win: impl Fn() + 'static) {
+        pub fn prepare(&self, on_win: impl Fn() + 'static, on_error: impl Fn(String) + 'static) {
             if self.on_win.set(Box::new(on_win)).is_err() {
                 return;
             }
+            if self.on_error.set(Box::new(on_error)).is_err() {
+                return;
+            }
 
-            let this = self.obj().clone();
-            self.download_daily_image(move |path| {
-                this.imp().set_source(path);
-                this.queue_draw();
-                this.imp().try_create_jigsaw();
-            });
+            self.download_daily_image();
         }
 
         pub fn shutdown(&self) {
@@ -251,23 +252,35 @@ mod imp {
             Ok(())
         }
 
-        fn download_daily_image(&self, then: impl Fn(PathBuf) + 'static) {
+        pub fn download_daily_image(&self) {
+            if self.downloading.replace(true) {
+                return;
+            }
+            let downloading = self.downloading.clone();
+
             let (tx, rx) = flume::unbounded::<Result<PathBuf, String>>();
             std::thread::spawn(move || {
                 let _ = tx.send(download_daily_image_blocking().map_err(|e| format!("{e:#}")));
             });
 
+            let this = self.obj().clone();
             glib::spawn_future_local(async move {
                 while let Ok(res) = rx.recv_async().await {
                     match res {
                         Ok(path) => {
-                            then(path);
+                            this.imp().set_source(path);
+                            this.queue_draw();
+                            this.imp().try_create_jigsaw();
                         }
                         Err(e) => {
-                            tracing::error!("daily image: {e:#}");
+                            tracing::error!("daily image: {e}");
+                            if let Some(on_error) = this.imp().on_error.get() {
+                                on_error(e);
+                            }
                         }
                     }
                 }
+                downloading.set(false);
             });
         }
 
@@ -452,20 +465,84 @@ mod imp {
     }
 
     fn today() -> u64 {
-        std::time::SystemTime::now()
+        SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs()
             / 86_400
     }
 
+    fn image_cache_path() -> anyhow::Result<PathBuf> {
+        let dir = glib::user_cache_dir().join(*APP_ID);
+        std::fs::create_dir_all(&dir).context("failed to create cache dir")?;
+        let path = dir.join(format!("daily-jigsaw-{}.jpg", today()));
+        if let Err(e) = prune_image_cache(&dir, &path) {
+            tracing::warn!("failed to prune image cache: {e:#}");
+        }
+        Ok(path)
+    }
+
+    fn prune_image_cache(dir: &Path, today: &Path) -> anyhow::Result<()> {
+        for entry in std::fs::read_dir(dir)? {
+            let path = entry?.path();
+            if path == today {
+                continue;
+            }
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            if !name.starts_with("daily-jigsaw-") || !name.ends_with(".jpg") {
+                continue;
+            }
+            std::fs::remove_file(&path)
+                .with_context(|| format!("failed to remove {}", path.display()))?;
+        }
+
+        Ok(())
+    }
+
+    /// Number of tries for a download before giving up.
+    const DOWNLOAD_ATTEMPTS: u32 = 3;
+
     fn download_daily_image_blocking() -> anyhow::Result<PathBuf> {
-        let path = std::env::temp_dir().join(format!("daily-jigsaw-{}.jpg", today()));
+        let path = image_cache_path()?;
         if path.exists() {
             return Ok(path);
         }
 
-        let mut resp = ureq::get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1")
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(15)))
+            .user_agent(concat!("daily-jigsaw/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .into();
+
+        let mut last_err = None;
+        for attempt in 1..=DOWNLOAD_ATTEMPTS {
+            match fetch_daily_image(&agent) {
+                Ok(bytes) => {
+                    std::fs::write(&path, bytes)
+                        .with_context(|| format!("failed to write {}", path.display()))?;
+                    return Ok(path);
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "daily image download failed \
+                         (attempt {attempt}/{DOWNLOAD_ATTEMPTS}): {e:#}"
+                    );
+                    last_err = Some(e);
+                    if attempt < DOWNLOAD_ATTEMPTS {
+                        std::thread::sleep(Duration::from_millis(500 * u64::from(attempt)));
+                    }
+                }
+            }
+        }
+
+        Err(last_err.expect("error should be defined"))
+    }
+
+    fn fetch_daily_image(agent: &ureq::Agent) -> anyhow::Result<Vec<u8>> {
+        let mut resp = agent
+            .get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1")
             .call()
             .context("image request failed")?;
         let json = resp
@@ -477,16 +554,13 @@ mod imp {
             .first()
             .context("invalid api response")?
             .image_url();
-        let mut img = ureq::get(image_url)
+        let mut img = agent
+            .get(image_url)
             .call()
             .context("image download failed")?;
-        let bytes = img
-            .body_mut()
+        img.body_mut()
             .read_to_vec()
-            .context("failed to read image body")?;
-        std::fs::write(&path, bytes)
-            .with_context(|| format!("failed to write {}", path.display()))?;
-        Ok(path)
+            .context("failed to read image body")
     }
 }
 
@@ -501,8 +575,12 @@ impl BoardView {
         glib::Object::new()
     }
 
-    pub fn setup(&self, on_win: impl Fn() + 'static) {
-        self.imp().prepare(on_win);
+    pub fn setup(&self, on_win: impl Fn() + 'static, on_error: impl Fn(String) + 'static) {
+        self.imp().prepare(on_win, on_error);
+    }
+
+    pub fn retry_download(&self) {
+        self.imp().download_daily_image();
     }
 
     pub fn reset(&self) {

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: daily-jigsaw\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 17:45+0200\n"
+"POT-Creation-Date: 2026-10-06 15:23+0200\n"
 "PO-Revision-Date: 2026-08-25 19:07+0200\n"
 "Last-Translator: alex <alex.piquard@hotmail.com>\n"
 "Language-Team: French <traduc@traduc.org>\n"
@@ -56,34 +56,50 @@ msgstr "Afficher des aides au placement"
 msgid "Main game window"
 msgstr "Fenêtre principal de jeu"
 
-#: src/app.rs:44
+#: src/app.rs:49
 msgid "_Preferences"
 msgstr "_Préférences"
 
-#: src/app.rs:45
+#: src/app.rs:50
 msgid "_Shortcuts"
 msgstr "_Raccourcis clavier"
 
-#: src/app.rs:46
+#: src/app.rs:51
 msgid "_About Daily Jigsaw"
 msgstr "À props de Daily Jigsaw"
 
-#: src/app.rs:104
+#: src/app.rs:80
+msgid "Reset puzzle"
+msgstr "Réinitialiser le puzzle"
+
+#: src/app.rs:89
+msgid "Reset"
+msgstr "Réinitialiser"
+
+#: src/app.rs:133
 msgid "Puzzle solved!"
 msgstr "Puzzle terminé !"
 
-#: src/modals/preferences.rs:36
+#: src/app.rs:136
+msgid "Couldn't download today's image"
+msgstr "Echec du téléchargement de l'image du jour"
+
+#: src/app.rs:137
+msgid "Retry"
+msgstr "Réessayer"
+
+#: src/modals/preferences.rs:41
 msgid "Grid size"
 msgstr "Taille de la grille"
 
-#: src/modals/preferences.rs:45
+#: src/modals/preferences.rs:50
 msgid "Helpers"
 msgstr "Aides"
 
-#: src/modals/preferences.rs:54
+#: src/modals/preferences.rs:60
 msgid "Game"
 msgstr "Jeu"
 
-#: src/modals/preferences.rs:59
+#: src/modals/preferences.rs:66
 msgid "General"
 msgstr "Général"
