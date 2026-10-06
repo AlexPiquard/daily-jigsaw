@@ -14,7 +14,7 @@
 		"--socket=wayland",
 		"--device=dri",
 		"--filesystem=host",
-		"--filesystem=/tmp",
+		"--share=network",
 		"--env=RUST_LOG=daily_jigsaw=debug",
 		"--env=G_MESSAGES_DEBUG=none",
 		"--env=RUST_BACKTRACE=1",
