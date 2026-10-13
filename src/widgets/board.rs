@@ -211,15 +211,17 @@ mod imp {
         }
 
         pub fn try_create_jigsaw(&self) -> anyhow::Result<()> {
-            let board_metrics = self.board_metrics()?;
-
+            let area_w = self.obj().width() as f32;
+            let area_h = self.obj().height() as f32;
             if self.jigsaw.borrow().is_some()
                 || self.source.borrow().is_none()
-                || board_metrics.area_w <= 0.0
-                || board_metrics.area_h <= 0.0
+                || area_w <= 0.0
+                || area_h <= 0.0
             {
                 return Ok(());
             }
+
+            let board_metrics = self.board_metrics()?;
 
             let path = self.path.borrow();
             let Some(path) = path.as_ref() else {
