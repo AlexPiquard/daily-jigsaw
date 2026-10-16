@@ -24,9 +24,6 @@
 		"append-path": "/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin",
 		"build-args": ["--share=network"],
 		"env": {
-			"PKG_CONFIG_PATH": "/app/lib/pkgconfig:/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig",
-			"PKG_CONFIG_LIBDIR": "/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig",
-			"PKG_CONFIG_SYSROOT_DIR": "/",
 			"CARGO_HOME": "/run/build/daily-jigsaw/cargo",
 			"CARGO_REGISTRIES_CRATES_IO_PROTOCOL": "sparse",
 			"CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER": "clang",
