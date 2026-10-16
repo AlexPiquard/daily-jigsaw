@@ -1,11 +1,11 @@
 {
 	"id": "fr.alexpiquard.dailyjigsaw.Devel",
 	"runtime": "org.gnome.Platform",
-	"runtime-version": "49",
+	"runtime-version": "50",
 	"sdk": "org.gnome.Sdk",
 	"sdk-extensions": [
 		"org.freedesktop.Sdk.Extension.rust-stable",
-		"org.freedesktop.Sdk.Extension.llvm20"
+		"org.freedesktop.Sdk.Extension.llvm22"
 	],
 	"command": "daily-jigsaw",
 	"finish-args": [
@@ -13,7 +13,6 @@
 		"--socket=fallback-x11",
 		"--socket=wayland",
 		"--device=dri",
-		"--filesystem=host",
 		"--share=network",
 		"--env=RUST_LOG=daily_jigsaw=debug",
 		"--env=G_MESSAGES_DEBUG=none",
@@ -21,7 +20,7 @@
 		"--env=GSK_RENDERER=gl"
 	],
 	"build-options": {
-		"append-path": "/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin",
+		"append-path": "/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm22/bin",
 		"build-args": ["--share=network"],
 		"env": {
 			"CARGO_HOME": "/run/build/daily-jigsaw/cargo",
@@ -30,8 +29,7 @@
 			"CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS": "-C link-arg=-fuse-ld=/usr/lib/sdk/rust-stable/bin/mold",
 			"CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER": "clang",
 			"CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS": "-C link-arg=-fuse-ld=/usr/lib/sdk/rust-stable/bin/mold"
-		},
-		"test-args": ["--socket=x11", "--share=network"]
+		}
 	},
 	"modules": [
 		{

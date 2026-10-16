@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
-use rand::Rng;
+use rand::RngExt;
 use relm4::gtk::glib::{self};
 
 use crate::config::APP_ID;
