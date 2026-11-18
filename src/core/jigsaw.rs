@@ -472,6 +472,25 @@ impl Piece {
         self.x == self.start_x && self.y == self.start_y
     }
 
+    /// Returns true if the piece is in one of the piece positions
+    pub fn is_snapped(&self) -> bool {
+        let metrics = self.metrics();
+        let base_x = metrics.origin_x - metrics.piece_arc_radius();
+        let base_y = metrics.origin_y - metrics.piece_arc_radius();
+
+        Piece::matches_grid_coordinate(self.x, base_x, metrics.piece_size, metrics.h_pieces)
+            && Piece::matches_grid_coordinate(self.y, base_y, metrics.piece_size, metrics.v_pieces)
+    }
+
+    fn matches_grid_coordinate(value: f32, base: f32, piece_size: f32, count: usize) -> bool {
+        let candidate = ((value - base) / piece_size).round();
+        if !(0.0..count as f32).contains(&candidate) {
+            return false;
+        }
+
+        value == base + candidate * piece_size
+    }
+
     fn metrics(&self) -> &Rc<Metrics> {
         self.metrics.get().unwrap()
     }

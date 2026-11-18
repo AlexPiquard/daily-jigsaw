@@ -10,7 +10,8 @@ pub struct PreferencesDialog {
 
 #[derive(Debug)]
 pub enum PreferencesOutput {
-    Changed,
+    GridSizeChanged,
+    HelpersChanged,
 }
 
 #[derive(Debug)]
@@ -72,12 +73,15 @@ impl SimpleComponent for PreferencesDialog {
         root.present(Some(&relm4::main_application().windows()[0]));
 
         let initial_grid_size = settings.int("grid-size");
+        let initial_helpers = settings.boolean("helpers");
 
         let settings_clone = settings.clone();
         root.connect_closed(move |_| {
-            let current_grid = settings_clone.int("grid-size");
-            if current_grid != initial_grid_size {
-                sender.output(PreferencesOutput::Changed).unwrap();
+            if settings_clone.int("grid-size") != initial_grid_size {
+                sender.output(PreferencesOutput::GridSizeChanged).unwrap();
+            }
+            if settings_clone.boolean("helpers") != initial_helpers {
+                sender.output(PreferencesOutput::HelpersChanged).unwrap();
             }
         });
 

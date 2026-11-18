@@ -27,6 +27,7 @@ pub(super) enum AppMsg {
     Quit,
     OpenPreferences,
     ResetPuzzle,
+    DrawPuzzle,
     RetryDownload,
 }
 
@@ -198,12 +199,16 @@ impl SimpleComponent for App {
                     preferences::PreferencesDialog::builder()
                         .launch(())
                         .forward(sender.input_sender(), |output| match output {
-                            preferences::PreferencesOutput::Changed => AppMsg::ResetPuzzle,
+                            preferences::PreferencesOutput::GridSizeChanged => AppMsg::ResetPuzzle,
+                            preferences::PreferencesOutput::HelpersChanged => AppMsg::DrawPuzzle,
                         }),
                 );
             }
             AppMsg::ResetPuzzle => {
                 self.board.reset();
+            }
+            AppMsg::DrawPuzzle => {
+                self.board.queue_draw();
             }
             AppMsg::RetryDownload => {
                 self.board.retry_download();

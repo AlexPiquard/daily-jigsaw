@@ -160,6 +160,18 @@ mod imp {
                 let translate = gtk::gsk::Transform::new().translate(&pos);
                 let translated = gtk::gsk::TransformNode::new(&mask_node, Some(&translate));
                 snapshot.append_node(&translated);
+
+                if self.helpers_enabled() && !piece.is_in_place() && piece.is_snapped() {
+                    let red = gtk::gdk::RGBA::new(1.0, 0.0, 0.0, 1.0);
+                    let outline_bounds =
+                        gtk::graphene::Rect::new(0.0, 0.0, total_piece_size, total_piece_size);
+                    let outline_color = gtk::gsk::ColorNode::new(&red, &outline_bounds);
+                    let stroke = gtk::gsk::Stroke::new(2.0);
+                    let outline = gtk::gsk::StrokeNode::new(&outline_color, path, &stroke);
+                    let outline_translated =
+                        gtk::gsk::TransformNode::new(&outline, Some(&translate));
+                    snapshot.append_node(&outline_translated);
+                }
             }
         }
 
@@ -246,6 +258,10 @@ mod imp {
             gtk::gio::Settings::new(*APP_ID)
                 .int("grid-size")
                 .clamp(3, 10) as usize
+        }
+
+        fn helpers_enabled(&self) -> bool {
+            gtk::gio::Settings::new(*APP_ID).boolean("helpers")
         }
 
         fn board_metrics(&self) -> anyhow::Result<BoardMetrics> {
