@@ -107,6 +107,27 @@ mod imp {
                 metrics.width as f32,
                 metrics.height as f32,
             );
+
+            if self.background_helper_enabled() {
+                let puzzle_bounds = gtk::graphene::Rect::new(
+                    metrics.origin_x,
+                    metrics.origin_y,
+                    metrics.h_pieces as f32 * metrics.piece_size,
+                    metrics.v_pieces as f32 * metrics.piece_size,
+                );
+                snapshot.push_clip(&puzzle_bounds);
+                snapshot.push_opacity(0.25);
+                let img_bounds = gtk::graphene::Rect::new(
+                    metrics.origin_x,
+                    metrics.origin_y,
+                    source.width() as f32 * metrics.scale,
+                    source.height() as f32 * metrics.scale,
+                );
+                snapshot.append_node(gtk::gsk::TextureNode::new(texture, &img_bounds));
+                snapshot.pop();
+                snapshot.pop();
+            }
+
             let rounded = gtk::gsk::RoundedRect::new(
                 bounds,
                 Size::zero(),
@@ -161,7 +182,7 @@ mod imp {
                 let translated = gtk::gsk::TransformNode::new(&mask_node, Some(&translate));
                 snapshot.append_node(&translated);
 
-                if self.helpers_enabled() && !piece.is_in_place() && piece.is_snapped() {
+                if self.errors_helper_enabled() && !piece.is_in_place() && piece.is_snapped() {
                     let red = gtk::gdk::RGBA::new(1.0, 0.0, 0.0, 1.0);
                     let outline_bounds =
                         gtk::graphene::Rect::new(0.0, 0.0, total_piece_size, total_piece_size);
@@ -260,8 +281,12 @@ mod imp {
                 .clamp(3, 10) as usize
         }
 
-        fn helpers_enabled(&self) -> bool {
-            gtk::gio::Settings::new(*APP_ID).boolean("helpers")
+        fn errors_helper_enabled(&self) -> bool {
+            gtk::gio::Settings::new(*APP_ID).boolean("show-errors")
+        }
+
+        fn background_helper_enabled(&self) -> bool {
+            gtk::gio::Settings::new(*APP_ID).boolean("show-background")
         }
 
         fn board_metrics(&self) -> anyhow::Result<BoardMetrics> {

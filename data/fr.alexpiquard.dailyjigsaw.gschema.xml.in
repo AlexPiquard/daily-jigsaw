@@ -17,9 +17,13 @@
       <default>4</default>
       <summary>Number of pieces per axis</summary>
     </key>
-    <key name="helpers" type="b">
+    <key name="show-errors" type="b">
       <default>false</default>
-      <summary>Show placement helpers</summary>
+      <summary>Show placement errors</summary>
+    </key>
+    <key name="show-background" type="b">
+      <default>false</default>
+      <summary>Show image as background</summary>
     </key>
   </schema>
 </schemalist>

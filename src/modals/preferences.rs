@@ -15,9 +15,14 @@ pub enum PreferencesOutput {
 }
 
 #[derive(Debug)]
+pub enum SettingValue {
+    Bool(bool),
+    Int(i32),
+}
+
+#[derive(Debug)]
 pub enum PreferencesMsg {
-    GridSizeChanged(i32),
-    HelpersChanged(bool),
+    SettingChanged(&'static str, SettingValue),
 }
 
 impl SimpleComponent for PreferencesDialog {
@@ -44,43 +49,71 @@ impl SimpleComponent for PreferencesDialog {
 
         let grid_sender = sender.clone();
         grid_size.connect_value_notify(move |row| {
-            grid_sender.input(PreferencesMsg::GridSizeChanged(row.value().round() as i32));
+            grid_sender.input(PreferencesMsg::SettingChanged(
+                "grid-size",
+                SettingValue::Int(row.value().round() as i32),
+            ));
         });
 
-        let helpers = adw::SwitchRow::builder()
-            .title(gettext("Helpers"))
-            .active(settings.boolean("helpers"))
-            .build();
-
-        let helpers_sender = sender.clone();
-        helpers.connect_active_notify(move |row| {
-            helpers_sender.input(PreferencesMsg::HelpersChanged(row.is_active()));
-        });
-
-        let group = adw::PreferencesGroup::builder()
+        let game_group = adw::PreferencesGroup::builder()
             .title(gettext("Game"))
             .build();
-        group.add(&grid_size);
-        group.add(&helpers);
+        game_group.add(&grid_size);
+
+        let errors = adw::SwitchRow::builder()
+            .title(gettext("Show errors"))
+            .active(settings.boolean("show-errors"))
+            .build();
+
+        let errors_sender = sender.clone();
+        errors.connect_active_notify(move |row| {
+            errors_sender.input(PreferencesMsg::SettingChanged(
+                "show-errors",
+                SettingValue::Bool(row.is_active()),
+            ));
+        });
+
+        let background = adw::SwitchRow::builder()
+            .title(gettext("Show image as background"))
+            .active(settings.boolean("show-background"))
+            .build();
+
+        let background_sender = sender.clone();
+        background.connect_active_notify(move |row| {
+            background_sender.input(PreferencesMsg::SettingChanged(
+                "show-background",
+                SettingValue::Bool(row.is_active()),
+            ));
+        });
+
+        let helpers_group = adw::PreferencesGroup::builder()
+            .title(gettext("Helpers"))
+            .build();
+        helpers_group.add(&errors);
+        helpers_group.add(&background);
 
         let page = adw::PreferencesPage::builder()
-            .title(gettext("General"))
+            .title(gettext("Preferences"))
             .icon_name("preferences-system-symbolic")
             .build();
-        page.add(&group);
+        page.add(&game_group);
+        page.add(&helpers_group);
 
         root.add(&page);
         root.present(Some(&relm4::main_application().windows()[0]));
 
         let initial_grid_size = settings.int("grid-size");
-        let initial_helpers = settings.boolean("helpers");
+        let initial_errors = settings.boolean("show-errors");
+        let initial_background = settings.boolean("show-background");
 
         let settings_clone = settings.clone();
         root.connect_closed(move |_| {
             if settings_clone.int("grid-size") != initial_grid_size {
                 sender.output(PreferencesOutput::GridSizeChanged).unwrap();
             }
-            if settings_clone.boolean("helpers") != initial_helpers {
+            if settings_clone.boolean("show-errors") != initial_errors
+                || settings_clone.boolean("show-background") != initial_background
+            {
                 sender.output(PreferencesOutput::HelpersChanged).unwrap();
             }
         });
@@ -92,11 +125,11 @@ impl SimpleComponent for PreferencesDialog {
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
-            PreferencesMsg::GridSizeChanged(size) => {
-                self.settings.set_int("grid-size", size).unwrap();
+            PreferencesMsg::SettingChanged(key, SettingValue::Int(value)) => {
+                self.settings.set_int(key, value).unwrap();
             }
-            PreferencesMsg::HelpersChanged(enabled) => {
-                self.settings.set_boolean("helpers", enabled).unwrap();
+            PreferencesMsg::SettingChanged(key, SettingValue::Bool(value)) => {
+                self.settings.set_boolean(key, value).unwrap();
             }
         }
     }

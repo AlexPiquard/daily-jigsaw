@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: daily-jigsaw\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-12 16:23+0200\n"
+"POT-Creation-Date: 2026-11-18 16:57+0100\n"
 "PO-Revision-Date: 2026-08-25 19:07+0200\n"
 "Last-Translator: alex <alex.piquard@hotmail.com>\n"
 "Language-Team: French <traduc@traduc.org>\n"
@@ -49,61 +49,70 @@ msgid "Number of pieces per axis"
 msgstr "Nombre de pièces par axe."
 
 #: data/fr.alexpiquard.dailyjigsaw.gschema.xml.in:22
-msgid "Show placement helpers"
+msgid "Show placement errors"
 msgstr "Afficher des aides au placement"
+
+#: data/fr.alexpiquard.dailyjigsaw.gschema.xml.in:26
+#: src/modals/preferences.rs:67
+msgid "Show image as background"
+msgstr "Afficher l'image en fond"
 
 #: data/fr.alexpiquard.dailyjigsaw.metainfo.xml.in.in:15
 msgid "Main game window"
 msgstr "Fenêtre principal de jeu"
 
-#: src/app.rs:49
+#: src/app.rs:50
 msgid "_Preferences"
 msgstr "_Préférences"
 
-#: src/app.rs:50
+#: src/app.rs:51
 msgid "_Shortcuts"
 msgstr "_Raccourcis clavier"
 
-#: src/app.rs:51
+#: src/app.rs:52
 msgid "_About Daily Jigsaw"
-msgstr "À props de Daily Jigsaw"
+msgstr "_À props de Daily Jigsaw"
 
-#: src/app.rs:80
+#: src/app.rs:81
 msgid "Reset puzzle"
 msgstr "Réinitialiser le puzzle"
 
-#: src/app.rs:89
+#: src/app.rs:90
 msgid "Reset"
 msgstr "Réinitialiser"
 
-#: src/app.rs:133
+#: src/app.rs:134
 msgid "Puzzle solved!"
 msgstr "Puzzle terminé !"
 
-#: src/app.rs:138
+#: src/app.rs:139
 msgid "Retry"
 msgstr "Réessayer"
 
-#: src/modals/preferences.rs:41
+#: src/modals/preferences.rs:43
 msgid "Grid size"
 msgstr "Taille de la grille"
 
-#: src/modals/preferences.rs:50
-msgid "Helpers"
-msgstr "Aides"
-
-#: src/modals/preferences.rs:60
+#: src/modals/preferences.rs:52
 msgid "Game"
 msgstr "Jeu"
 
-#: src/modals/preferences.rs:66
-msgid "General"
-msgstr "Général"
+#: src/modals/preferences.rs:57
+msgid "Show errors"
+msgstr "Afficher les erreurs"
 
-#: src/widgets/board.rs:172 src/widgets/board.rs:297
+#: src/modals/preferences.rs:77
+msgid "Helpers"
+msgstr "Aides"
+
+#: src/modals/preferences.rs:83
+msgid "Preferences"
+msgstr "Préférences"
+
+#: src/widgets/board.rs:205 src/widgets/board.rs:340
 msgid "Couldn't create jigsaw"
 msgstr "Echec de la création du puzzle"
 
-#: src/widgets/board.rs:303
+#: src/widgets/board.rs:346
 msgid "Couldn't download today's image"
 msgstr "Echec du téléchargement de l'image du jour"
