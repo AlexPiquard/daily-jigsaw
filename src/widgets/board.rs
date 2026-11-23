@@ -386,6 +386,8 @@ mod imp {
 
                     // Move piece to end (top z-order)
                     jigsaw.move_on_top(index);
+
+                    this.set_cursor_from_name(Some("grabbing"));
                 }
             });
 
@@ -427,6 +429,7 @@ mod imp {
                     this.queue_draw();
                 }
                 *this.imp().drag_state.borrow_mut() = None;
+                this.set_cursor_from_name(None);
             });
 
             self.obj().add_controller(gesture);
