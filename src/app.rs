@@ -36,6 +36,7 @@ relm4::new_stateless_action!(PreferencesAction, WindowActionGroup, "preferences"
 relm4::new_stateless_action!(pub(super) ShortcutsAction, WindowActionGroup, "show-help-overlay");
 relm4::new_stateless_action!(AboutAction, WindowActionGroup, "about");
 relm4::new_stateless_action!(QuitAction, WindowActionGroup, "quit");
+relm4::new_stateless_action!(ResetAction, WindowActionGroup, "reset");
 
 #[relm4::component(pub)]
 impl SimpleComponent for App {
@@ -159,31 +160,37 @@ impl SimpleComponent for App {
             })
         };
 
-        let shortcuts_action = {
-            RelmAction::<ShortcutsAction>::new_stateless(move |_| {
-                ShortcutsDialog::builder().launch(()).detach();
-            })
-        };
+        let shortcuts_action = RelmAction::<ShortcutsAction>::new_stateless(move |_| {
+            ShortcutsDialog::builder().launch(()).detach();
+        });
 
-        let about_action = {
-            RelmAction::<AboutAction>::new_stateless(move |_| {
-                AboutDialog::builder().launch(()).detach();
-            })
-        };
+        let about_action = RelmAction::<AboutAction>::new_stateless(move |_| {
+            AboutDialog::builder().launch(()).detach();
+        });
 
         let quit_action = {
+            let sender = sender.clone();
             RelmAction::<QuitAction>::new_stateless(move |_| {
                 sender.input(AppMsg::Quit);
             })
         };
 
-        // Connect action with hotkeys
+        let reset_action = {
+            let sender = sender.clone();
+            RelmAction::<ResetAction>::new_stateless(move |_| {
+                sender.input(AppMsg::ResetPuzzle);
+            })
+        };
+
+        // Connect actions with hotkeys
         app.set_accelerators_for_action::<QuitAction>(&["<Control>q"]);
+        app.set_accelerators_for_action::<ResetAction>(&["<Control>r"]);
 
         actions.add_action(preferences_action);
         actions.add_action(shortcuts_action);
         actions.add_action(about_action);
         actions.add_action(quit_action);
+        actions.add_action(reset_action);
         actions.register_for_widget(&widgets.main_window);
 
         widgets.load_window_size();

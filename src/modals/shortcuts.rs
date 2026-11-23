@@ -26,6 +26,7 @@ impl SimpleComponent for ShortcutsDialog {
 
         let section = adw::ShortcutsSection::new(None);
         section.add(adw::ShortcutsItem::new("Quit", "<Control>q"));
+        section.add(adw::ShortcutsItem::new("Reset", "<Control>r"));
 
         widgets.add(section);
         widgets.present(Some(&relm4::main_adw_application().windows()[0]));
