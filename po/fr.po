@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: daily-jigsaw\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 16:57+0100\n"
+"POT-Creation-Date: 2026-11-23 15:54+0100\n"
 "PO-Revision-Date: 2026-08-25 19:07+0200\n"
 "Last-Translator: alex <alex.piquard@hotmail.com>\n"
 "Language-Team: French <traduc@traduc.org>\n"
@@ -53,7 +53,7 @@ msgid "Show placement errors"
 msgstr "Afficher des aides au placement"
 
 #: data/fr.alexpiquard.dailyjigsaw.gschema.xml.in:26
-#: src/modals/preferences.rs:67
+#: src/modals/preferences.rs:77
 msgid "Show image as background"
 msgstr "Afficher l'image en fond"
 
@@ -61,53 +61,57 @@ msgstr "Afficher l'image en fond"
 msgid "Main game window"
 msgstr "Fenêtre principal de jeu"
 
-#: src/app.rs:50
+#: src/app.rs:51
 msgid "_Preferences"
 msgstr "_Préférences"
 
-#: src/app.rs:51
+#: src/app.rs:52
 msgid "_Shortcuts"
 msgstr "_Raccourcis clavier"
 
-#: src/app.rs:52
+#: src/app.rs:53
 msgid "_About Daily Jigsaw"
 msgstr "_À props de Daily Jigsaw"
 
-#: src/app.rs:81
+#: src/app.rs:82
 msgid "Reset puzzle"
 msgstr "Réinitialiser le puzzle"
 
-#: src/app.rs:90
+#: src/app.rs:91 src/modals/shortcuts.rs:30
 msgid "Reset"
 msgstr "Réinitialiser"
 
-#: src/app.rs:134
+#: src/app.rs:135
 msgid "Puzzle solved!"
 msgstr "Puzzle terminé !"
 
-#: src/app.rs:139
+#: src/app.rs:140
 msgid "Retry"
 msgstr "Réessayer"
 
-#: src/modals/preferences.rs:43
+#: src/modals/preferences.rs:47
 msgid "Grid size"
 msgstr "Taille de la grille"
 
-#: src/modals/preferences.rs:52
+#: src/modals/preferences.rs:59
 msgid "Game"
 msgstr "Jeu"
 
-#: src/modals/preferences.rs:57
+#: src/modals/preferences.rs:64
 msgid "Show errors"
 msgstr "Afficher les erreurs"
 
-#: src/modals/preferences.rs:77
+#: src/modals/preferences.rs:90
 msgid "Helpers"
 msgstr "Aides"
 
-#: src/modals/preferences.rs:83
+#: src/modals/preferences.rs:96
 msgid "Preferences"
 msgstr "Préférences"
+
+#: src/modals/shortcuts.rs:29
+msgid "Quit"
+msgstr "Quitter"
 
 #: src/widgets/board.rs:205 src/widgets/board.rs:340
 msgid "Couldn't create jigsaw"
