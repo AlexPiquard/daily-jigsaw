@@ -36,15 +36,15 @@ pub struct BoardMetrics {
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Metrics {
     pub snap_distance: f32,
-    pub width: i32,
-    pub height: i32,
+    pub width: f32,
+    pub height: f32,
     pub area_w: f32,
     pub area_h: f32,
     pub origin_x: f32,
     pub origin_y: f32,
     pub piece_size: f32,
-    pub h_pieces: usize,
-    pub v_pieces: usize,
+    h_pieces: usize,
+    v_pieces: usize,
     /// displayed pixels -> source image pixels
     pub scale: f32,
     pub grid_size: usize,
@@ -106,18 +106,18 @@ impl Metrics {
         let v_pieces;
         let h_pieces;
         let piece_size: f32;
-        let mut width = disp_w as i32;
-        let mut height = disp_h as i32;
+        let mut width = disp_w;
+        let mut height = disp_h;
         if disp_w >= disp_h {
             v_pieces = grid_size;
             piece_size = disp_h / v_pieces as f32;
             h_pieces = (disp_w / piece_size) as usize;
-            width = piece_size as i32 * h_pieces as i32;
+            width = piece_size * h_pieces as f32;
         } else {
             h_pieces = grid_size;
             piece_size = disp_w / h_pieces as f32;
             v_pieces = (disp_h / piece_size) as usize;
-            height = piece_size as i32 * v_pieces as i32;
+            height = piece_size * v_pieces as f32;
         }
 
         if piece_size < MIN_PIECE_SIZE || h_pieces == 0 || v_pieces == 0 {
@@ -311,10 +311,10 @@ impl Jigsaw {
                 max_y = metrics.origin_y - total_piece_size;
             }
             2 => {
-                min_x = metrics.origin_x + metrics.width as f32;
+                min_x = metrics.origin_x + metrics.width;
             }
             3 => {
-                min_y = metrics.origin_y + metrics.height as f32;
+                min_y = metrics.origin_y + metrics.height;
             }
             _ => unreachable!(),
         }

@@ -104,16 +104,16 @@ mod imp {
             let bounds = gtk::graphene::Rect::new(
                 metrics.origin_x,
                 metrics.origin_y,
-                metrics.width as f32,
-                metrics.height as f32,
+                metrics.width,
+                metrics.height,
             );
 
             if self.background_helper_enabled() {
                 let puzzle_bounds = gtk::graphene::Rect::new(
                     metrics.origin_x,
                     metrics.origin_y,
-                    metrics.h_pieces as f32 * metrics.piece_size,
-                    metrics.v_pieces as f32 * metrics.piece_size,
+                    metrics.width,
+                    metrics.height,
                 );
                 snapshot.push_clip(&puzzle_bounds);
                 snapshot.push_opacity(0.25);
