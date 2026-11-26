@@ -58,6 +58,7 @@ endif
 # GSchema
 gschema_conf = configuration_data()
 gschema_conf.set('app-id', application_id)
+gschema_conf.set('path-id', path_id)
 gschema_conf.set('gettext-package', gettext_package)
 configure_file(
   input: '@0@.gschema.xml.in'.format(base_id),

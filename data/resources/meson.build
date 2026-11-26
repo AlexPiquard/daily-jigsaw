@@ -1,8 +1,8 @@
 # Resources
 
 conf = configuration_data()
-conf.set('PATH_ID', path_id)
-conf.set('APP_ID', application_id)
+conf.set('path-id', path_id)
+conf.set('app-id', application_id)
 gresource_file = configure_file(
   input: '@0@.gresource.xml.in'.format(base_id),
   output: '@0@.gresource.xml'.format(application_id),
